@@ -27,10 +27,10 @@ if __name__ == '__main__':
         # Import after setting environment
         from main import app
         
-        print("🚀 Starting FinTech Forecasting API...")
-        print("📍 Backend: http://localhost:5000")
-        print("📝 Logs: Check console for API requests")
-        print("🛑 Press Ctrl+C to stop")
+        print("Starting FinTech Forecasting API...")
+        print("Backend: http://localhost:5000")
+        print("Logs: Check console for API requests")
+        print("Press Ctrl+C to stop")
         print("-" * 50)
         
         # Use simple Flask server without debug mode
@@ -42,6 +42,6 @@ if __name__ == '__main__':
             threaded=True
         )
     except Exception as e:
-        print(f"❌ Error starting server: {e}")
-        print("💡 Try running: pip install flask flask-cors pymongo python-dotenv")
+        print(f"Error starting server: {e}")
+        print("Try running: pip install flask flask-cors pymongo python-dotenv")
         input("Press Enter to exit...")

@@ -20,7 +20,7 @@ from database import (
     store_price_data, get_price_data, store_forecast, 
     get_latest_forecast, store_model_performance
 )
-from forecasting_simple import create_model, save_model
+from forecasting_simple_noml import create_model, ModelMetrics
 from data_loader import load_data_async, ensure_symbol_data
 
 # Configure logging
@@ -167,14 +167,35 @@ def generate_forecast(symbol: str):
                 })
         
         # Create and train model
-        model = create_model(model_type, symbol.upper())
+        logger.info(f"Creating {model_type} model for {symbol}")
+        model = create_model(model_type)
         
-        logger.info(f"Training {model_type} model for {symbol}")
-        training_metrics = model.train(price_data)
+        # Prepare price data for training
+        price_values = np.array([pd.close for pd in price_data])
+        
+        # Fit model
+        logger.info(f"Training model on {len(price_values)} data points")
+        model.fit(price_values)
         
         # Generate predictions
-        logger.info(f"Generating {horizon}h forecast for {symbol}")
-        predictions, confidence_intervals = model.predict(price_data, horizon)
+        logger.info(f"Generating {horizon} step forecast")
+        predictions = model.predict(price_values, steps=horizon)
+        
+        # Convert to proper format if numpy array
+        if hasattr(predictions, 'flatten'):
+            predictions = predictions.flatten()
+        
+        # Ensure predictions is a list of numbers
+        predictions = [float(p) for p in predictions]
+        
+        # Generate confidence intervals (simple estimation)
+        confidence_intervals = np.column_stack([
+            np.array(predictions) * 0.95,  # Lower bound
+            np.array(predictions) * 1.05   # Upper bound
+        ])
+        
+        # Calculate training metrics
+        training_metrics = {"model_type": model_type, "training_samples": len(price_values)}
         
         # Create forecast timestamps
         last_timestamp = max(pd.timestamp for pd in price_data)
@@ -194,13 +215,19 @@ def generate_forecast(symbol: str):
         
         # Calculate evaluation metrics on recent data
         evaluation_metrics = {}
-        if len(price_data) > horizon:
-            # Use last 'horizon' points for evaluation
-            recent_data = price_data[-horizon-20:-horizon]  # Leave some data for prediction
-            eval_predictions, _ = model.predict(recent_data, horizon)
-            actual_values = np.array([pd.close for pd in price_data[-horizon:]])
+        if len(price_data) > horizon * 2:
+            # Use portion of data for validation
+            split_point = len(price_data) - horizon
+            train_data = price_values[:split_point]
+            test_data = price_values[split_point:]
             
-            evaluation_metrics = model.evaluate(actual_values, eval_predictions)
+            # Create validation model
+            val_model = create_model(model_type)
+            val_model.fit(train_data)
+            val_predictions = val_model.predict(train_data, steps=len(test_data))
+            
+            # Calculate metrics
+            evaluation_metrics = ModelMetrics.calculate_metrics(test_data, val_predictions)
         
         # Combine training and evaluation metrics
         all_metrics = {**training_metrics, **evaluation_metrics}
@@ -226,9 +253,6 @@ def generate_forecast(symbol: str):
             data_points=len(price_data)
         )
         store_model_performance(performance)
-        
-        # Save model
-        save_model(model, f"{symbol}_{model_type}_{datetime.now().strftime('%Y%m%d')}.pkl")
         
         return jsonify({
             "symbol": symbol.upper(),
@@ -313,6 +337,80 @@ def get_model_performance(symbol: str):
         
     except Exception as e:
         logger.error(f"Error getting performance for {symbol}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/compare-models/<symbol>', methods=['POST'])
+def compare_models(symbol: str):
+    """Compare multiple models on the same dataset."""
+    try:
+        data = request.get_json()
+        model_types = data.get('models', ['arima', 'lstm', 'gru', 'moving_average', 'transformer'])
+        test_size = data.get('test_size', 30)  # Days to use for testing
+        
+        # Get historical data
+        price_data = get_price_data(symbol.upper(), 500)
+        if len(price_data) < 50:
+            return jsonify({"error": "Insufficient data for comparison"}), 400
+        
+        price_values = np.array([pd.close for pd in price_data])
+        
+        # Split data for testing
+        split_point = len(price_values) - test_size
+        train_data = price_values[:split_point]
+        test_data = price_values[split_point:]
+        
+        comparison_results = []
+        
+        for model_type in model_types:
+            try:
+                logger.info(f"Evaluating {model_type} for comparison")
+                
+                # Create and train model
+                model = create_model(model_type)
+                model.fit(train_data)
+                
+                # Generate predictions
+                predictions = model.predict(train_data, steps=len(test_data))
+                
+                # Calculate metrics
+                metrics = ModelMetrics.calculate_metrics(test_data, predictions)
+                
+                comparison_results.append({
+                    "name": model_type.upper(),
+                    "type": "neural" if model_type in ['lstm', 'gru', 'transformer'] else "traditional",
+                    "mse": metrics['mse'],
+                    "mae": metrics['mae'], 
+                    "rmse": metrics['rmse'],
+                    "mape": metrics['mape'],
+                    "accuracy": metrics.get('direction_accuracy', 0),
+                    "trainingTime": 10.0,  # Mock training time
+                    "status": "success",
+                    "description": f"{model_type.title()} model evaluation on {test_size} test samples"
+                })
+                
+            except Exception as e:
+                logger.error(f"Error evaluating {model_type}: {e}")
+                comparison_results.append({
+                    "name": model_type.upper(),
+                    "type": "neural" if model_type in ['lstm', 'gru', 'transformer'] else "traditional", 
+                    "mse": 999.0,
+                    "mae": 999.0,
+                    "rmse": 999.0,
+                    "mape": 999.0,
+                    "accuracy": 0,
+                    "trainingTime": 0.0,
+                    "status": "error",
+                    "description": f"Failed to evaluate {model_type}: {str(e)}"
+                })
+        
+        return jsonify({
+            "symbol": symbol.upper(),
+            "test_period": f"{test_size} days",
+            "models": comparison_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error comparing models for {symbol}: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/update-data', methods=['POST'])

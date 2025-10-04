@@ -34,35 +34,26 @@ A comprehensive financial forecasting application built with **Next.js**, **Pyth
 
 ## 🚀 Quick Start
 
-### Option 1: Automated Setup (Recommended)
-
-**Windows:**
-
-```cmd
-setup.bat
-```
-
-**Linux/macOS:**
+### Option 1: Docker (Production-Ready)
 
 ```bash
-chmod +x setup.sh
-./setup.sh
-```
+# Copy environment template
+cp .env.example .env
 
-### Option 2: Docker (Production-Ready)
-
-```bash
-# Set your Alpha Vantage API key
-echo "ALPHA_VANTAGE_API_KEY=your_api_key_here" > .env
+# Edit .env with your API keys
+# ALPHA_VANTAGE_API_KEY=your_api_key_here
+# DATABASE_URL=mongodb://localhost:27017/fintech_forecasting
 
 # Start all services
 docker-compose up -d
 
 # View logs
 docker-compose logs -f
+
+# Access the app at http://localhost:3000
 ```
 
-### Option 3: Manual Setup
+### Option 2: Manual Setup
 
 #### Prerequisites
 

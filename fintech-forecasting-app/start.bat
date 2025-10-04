@@ -1,12 +1,20 @@
-@echo off
-echo ========================================
-echo FinTech Forecasting App - Start Script
-echo ========================================
-echo.
+@echo off@echo off
 
-REM Get the current directory
-set "APP_DIR=%~dp0"
+echo ========================================echo ========================================
 
+echo Starting FinTech Forecasting Frontendecho FinTech Forecasting App - Start Script
+
+echo ========================================echo ========================================
+
+echo.echo.
+
+
+
+REM Start Frontend (Next.js)REM Get the current directory
+
+echo Starting Next.js development server...set "APP_DIR=%~dp0"
+
+npm run dev
 echo Starting FinTech Forecasting Application...
 echo.
 

@@ -1,65 +1,96 @@
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 224 71.4% 4.1%;
+    --background: 222 60% 98%;
+    --foreground: 224 71.4% 6.1%;
 
-    --muted: 215 20.2% 65.1%;
+    --muted: 220 20% 80%;
     --muted-foreground: 220 14.3% 35.9%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 224 71.4% 4.1%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card: 222 60% 99%;
+    --card-foreground: 224 71.4% 6.1%;
 
-    --border: 215 15% 82%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 215 15% 85%;
+    --input: 214.3 31.8% 94.4%;
 
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 245 80% 60%; /* Deep blue-purple */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 199 89% 48%;
+    --secondary: 160 60% 45%; /* Accent green */
     --secondary-foreground: 210 40% 98%;
 
-    --accent: 160 60% 45%;
+    --accent: 199 89% 58%; /* Vibrant blue */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 245 80% 60%;
 
-    --radius: 0.75rem;
+    --radius: 1.25rem;
+
+    /* Glassmorphism */
+    --glass-bg: hsla(222, 60%, 99%, 0.7);
+    --glass-blur: 16px;
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.18);
+    --gradient-main: linear-gradient(
+      135deg,
+      hsl(245, 80%, 60%) 0%,
+      hsl(199, 89%, 58%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(160, 60%, 45%) 0%,
+      hsl(245, 80%, 60%) 100%
+    );
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 84% 6.9%;
     --foreground: 210 40% 98%;
 
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
+    --muted: 215 27.9% 18.9%;
+    --muted-foreground: 217.9 10.6% 74.9%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 222.2 84% 8.9%;
     --popover-foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222.2 84% 8.9%;
     --card-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 217.2 32.6% 22.5%;
+    --input: 217.2 32.6% 22.5%;
 
-    --primary: 199 89% 58%;
+    --primary: 245 80% 70%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 160 60% 45%;
+    --secondary: 160 60% 55%;
     --secondary-foreground: 210 40% 98%;
 
-    --accent: 221 93% 53%;
+    --accent: 199 89% 68%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 40.6%;
     --destructive-foreground: 0 85.7% 97.3%;
 
-    --ring: 199 89% 58%;
+    --ring: 245 80% 70%;
+
+    --glass-bg: hsla(222, 84%, 8.9%, 0.7);
+    --glass-blur: 16px;
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.28);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.12);
+    --gradient-main: linear-gradient(
+      135deg,
+      hsl(245, 80%, 70%) 0%,
+      hsl(199, 89%, 68%) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(160, 60%, 55%) 0%,
+      hsl(245, 80%, 70%) 100%
+    );
   }
 }
