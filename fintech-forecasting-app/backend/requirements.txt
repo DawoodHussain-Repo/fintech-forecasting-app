@@ -1,0 +1,59 @@
+# Python Backend Requirements
+# Core ML and Data Science Libraries
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Deep Learning Libraries
+torch>=2.0.0
+tensorflow>=2.13.0
+keras>=2.13.0
+
+# Time Series Analysis
+statsmodels>=0.14.0
+pmdarima>=2.0.0
+prophet>=1.1.0
+
+# Database & Data Storage
+pymongo>=4.4.0
+motor>=3.2.0  # Async MongoDB driver
+redis>=4.6.0
+
+# Web Framework & API
+flask>=2.3.0
+flask-cors>=4.3.0
+flask-pymongo>=2.3.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Data Validation & Serialization
+pydantic>=2.0.0
+marshmallow>=3.19.0
+
+# Task Scheduling & Background Jobs
+celery>=5.3.0
+apscheduler>=3.10.0
+schedule>=1.2.0
+
+# Testing
+pytest>=7.4.0
+pytest-mock>=3.11.0
+pytest-asyncio>=0.21.0
+
+# Utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
+tqdm>=4.65.0
+joblib>=1.3.0
+
+# Production & Deployment
+gunicorn>=21.0.0
+# uwsgi>=2.0.0  # Windows incompatible - use gunicorn instead
+waitress>=2.1.0  # Windows-compatible WSGI server
+
+# Financial Data APIs
+yfinance>=0.2.0
+alpha-vantage>=2.3.0

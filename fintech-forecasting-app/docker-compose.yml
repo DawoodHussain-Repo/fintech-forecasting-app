@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    depends_on:
+      - backend
+    volumes:
+      - ./:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - fintech-network
+
+  # Python ML Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+      - ./backend/models:/app/models
+    networks:
+      - fintech-network
+    restart: unless-stopped
+
+  # Redis for Caching
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fintech-network
+    restart: unless-stopped
+
+  # Background Task Scheduler
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python scheduler.py
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+      - ./backend/logs:/app/logs
+      - ./backend/models:/app/models
+    networks:
+      - fintech-network
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+
+networks:
+  fintech-network:
+    driver: bridge

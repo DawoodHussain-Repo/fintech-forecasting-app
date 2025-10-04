@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "app": "concurrently \"npm run backend\" \"npm run dev\"",
+    "backend": "cd backend && .\\venv\\Scripts\\activate && python run_server.py",
+    "setup": "npm install && cd backend && pip install -r requirements.txt"
   },
   "dependencies": {
     "@radix-ui/react-icons": "^1.3.2",
@@ -33,6 +36,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-sparklines": "^1.7.5",
+    "concurrently": "^8.2.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",

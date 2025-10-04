@@ -268,7 +268,8 @@ export async function GET(
   { params }: { params: { symbol: string } }
 ) {
   try {
-    const instrument = detectInstrument(params.symbol);
+    const resolvedParams = await params;
+    const instrument = detectInstrument(resolvedParams.symbol);
 
     switch (instrument.type) {
       case "stock": {

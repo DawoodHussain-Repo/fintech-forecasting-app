@@ -1,0 +1,142 @@
+2025-10-05 00:20:20,204 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:20:20,207 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:20:20,207 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:20:20,207 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:20:20,909 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:20:21,537 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:20:21,646 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.18.103:5000
+2025-10-05 00:20:21,651 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-05 00:20:21,674 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:20:24,882 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:20:24,886 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:20:24,886 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:20:24,886 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:20:25,613 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:20:26,315 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:20:26,340 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:20:26,353 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:20:38,678 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:20:38] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:20:39,146 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:20:39] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:20:51,946 - database - ERROR - Failed to retrieve price data: Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
+2025-10-05 00:20:51,947 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:20:51] "[31m[1mPOST /api/forecast/AAPL HTTP/1.1[0m" 400 -
+2025-10-05 00:21:32,882 - werkzeug - INFO -  * Detected change in 'D:\\FAST University\\SEMESTER 7\\NLP\\Assignments\\Assignment No 02\\fintech-forecasting-app\\fintech-forecasting-app\\backend\\database.py', reloading
+2025-10-05 00:21:33,562 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:21:37,996 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:21:38,078 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:21:38,082 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:21:38,082 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:21:39,697 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:21:40,704 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:21:40,753 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:21:40,779 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:21:45,636 - werkzeug - INFO -  * Detected change in 'D:\\FAST University\\SEMESTER 7\\NLP\\Assignments\\Assignment No 02\\fintech-forecasting-app\\fintech-forecasting-app\\backend\\main.py', reloading
+2025-10-05 00:21:46,268 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:21:49,261 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:21:49,275 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:21:49,275 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:21:49,276 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:21:50,144 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:21:51,036 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:21:51,081 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:21:51,101 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:22:00,274 - werkzeug - INFO -  * Detected change in 'D:\\FAST University\\SEMESTER 7\\NLP\\Assignments\\Assignment No 02\\fintech-forecasting-app\\fintech-forecasting-app\\backend\\main.py', reloading
+2025-10-05 00:22:00,784 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:22:03,137 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:22:03,141 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:22:03,141 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:22:03,141 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:22:03,908 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:22:04,655 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:22:04,684 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:22:04,698 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:22:19,513 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:22:19,519 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:22:19,519 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:22:19,519 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:22:20,558 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:22:21,409 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:22:21,461 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.18.103:5000
+2025-10-05 00:22:21,462 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-05 00:22:21,466 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:22:24,391 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:22:24,398 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:22:24,399 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:22:24,399 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:22:25,222 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:22:26,026 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:22:26,066 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:22:26,080 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:23:29,207 - werkzeug - INFO -  * Detected change in 'D:\\FAST University\\SEMESTER 7\\NLP\\Assignments\\Assignment No 02\\fintech-forecasting-app\\fintech-forecasting-app\\backend\\database.py', reloading
+2025-10-05 00:23:29,214 - werkzeug - INFO -  * Detected change in 'D:\\FAST University\\SEMESTER 7\\NLP\\Assignments\\Assignment No 02\\fintech-forecasting-app\\fintech-forecasting-app\\backend\\database.py', reloading
+2025-10-05 00:23:29,656 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:23:29,756 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:23:33,549 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:23:33,550 - __main__ - WARNING - Configuration validation failed - some features may not work
+2025-10-05 00:23:33,553 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:23:33,553 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:23:33,553 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:23:33,553 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:23:33,553 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:23:33,554 - __main__ - INFO - Performing initial data fetch...
+2025-10-05 00:23:34,958 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:23:34,968 - __main__ - ERROR - No time series data found for AAPL
+2025-10-05 00:23:35,699 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:23:35,705 - __main__ - ERROR - No time series data found for GOOGL
+2025-10-05 00:23:35,728 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:23:35,734 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:23:35,742 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:23:35,747 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:30:26,110 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:30:26,111 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:30:26,111 - __main__ - INFO - Starting background data loading...
+2025-10-05 00:30:26,112 - data_loader - INFO - Starting initial data load...
+2025-10-05 00:30:26,157 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.18.103:5000
+2025-10-05 00:30:26,157 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-05 00:30:26,160 - werkzeug - INFO -  * Restarting with stat
+2025-10-05 00:30:26,213 - data_loader - INFO - Fetching data for AAPL...
+2025-10-05 00:30:28,913 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:30:28,913 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:30:28,913 - __main__ - INFO - Starting background data loading...
+2025-10-05 00:30:28,914 - data_loader - INFO - Starting initial data load...
+2025-10-05 00:30:28,942 - werkzeug - WARNING -  * Debugger is active!
+2025-10-05 00:30:28,954 - werkzeug - INFO -  * Debugger PIN: 325-519-359
+2025-10-05 00:30:29,027 - data_loader - INFO - Fetching data for AAPL...
+2025-10-05 00:31:07,286 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:31:07] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:31:07,812 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:31:07] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:31:23,558 - forecasting_simple - INFO - Creating moving_average model for AAPL
+2025-10-05 00:31:23,559 - __main__ - INFO - Training moving_average model for AAPL
+2025-10-05 00:31:23,559 - __main__ - INFO - Generating 24h forecast for AAPL
+2025-10-05 00:31:23,824 - forecasting_simple - INFO - Model saved to models\AAPL_moving_average_20251005.pkl
+2025-10-05 00:31:23,826 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:31:23] "POST /api/forecast/AAPL HTTP/1.1" 200 -
+2025-10-05 00:31:48,991 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:31:48] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:31:49,540 - werkzeug - INFO - 127.0.0.1 - - [05/Oct/2025 00:31:49] "GET /api/models HTTP/1.1" 200 -
+2025-10-05 00:46:04,285 - __main__ - INFO - Starting FinTech Forecasting API
+2025-10-05 00:46:04,286 - __main__ - INFO - Configuration: development mode
+2025-10-05 00:46:04,286 - __main__ - INFO - Starting background data loading...
+2025-10-05 00:46:04,287 - data_loader - INFO - Starting initial data load...
+2025-10-05 00:46:04,287 - __main__ - INFO - Starting Flask server...
+2025-10-05 00:46:04,299 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-10-05 00:46:04,299 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-10-05 00:46:04,388 - data_loader - ERROR - Error loading data for AAPL: can't subtract offset-naive and offset-aware datetimes
+2025-10-05 00:46:04,489 - data_loader - INFO - Fetching data for MSFT...
+2025-10-05 00:46:05,792 - data_loader - ERROR - No time series data found for MSFT
+2025-10-05 00:46:05,794 - data_loader - WARNING - Failed to load data for MSFT
+2025-10-05 00:46:05,795 - data_loader - INFO - Waiting 12s for rate limit...
+2025-10-05 00:46:17,899 - data_loader - INFO - Fetching data for GOOGL...
+2025-10-05 00:46:19,369 - data_loader - ERROR - No time series data found for GOOGL
+2025-10-05 00:46:19,374 - data_loader - WARNING - Failed to load data for GOOGL
+2025-10-05 00:46:19,374 - data_loader - INFO - Waiting 12s for rate limit...
+2025-10-05 00:46:31,484 - data_loader - INFO - Fetching data for AMZN...
+2025-10-05 00:46:33,817 - data_loader - ERROR - No time series data found for AMZN
+2025-10-05 00:46:33,819 - data_loader - WARNING - Failed to load data for AMZN
+2025-10-05 00:46:33,819 - data_loader - INFO - Waiting 12s for rate limit...
