@@ -1,7 +1,36 @@
 @import "tailwindcss";
-@import "../styles/theme.css";
 
 @layer base {
+  :root {
+    --background: 0 0% 7%; /* Deep black */
+    --foreground: 120 100% 95%; /* Light green tint */
+    --primary: 120 100% 50%; /* Neon green */
+    --primary-foreground: 0 0% 0%; /* Black text on neon green */
+    --secondary: 120 40% 30%; /* Darker green */
+    --secondary-foreground: 120 100% 95%;
+    --accent: 120 60% 40%; /* Medium green */
+    --accent-foreground: 120 100% 95%;
+    --muted: 0 0% 15%; /* Dark gray */
+    --muted-foreground: 0 0% 60%; /* Light gray */
+    --border: 120 20% 25%; /* Dark green border */
+    --input: 120 20% 25%; /* Input background */
+    --ring: 120 100% 50%; /* Focus ring color */
+    --radius: 0.5rem; /* Border radius */
+
+    /* Custom gradients */
+    --gradient-main: linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.95) 0%,
+      rgba(5, 15, 5, 0.9) 25%,
+      rgba(0, 10, 0, 0.95) 50%,
+      rgba(0, 0, 0, 0.95) 100%
+    );
+    --gradient-accent: linear-gradient(
+      135deg,
+      rgba(0, 255, 127, 0.1) 0%,
+      rgba(0, 255, 127, 0.05) 100%
+    );
+  }
   * {
     border-color: hsl(var(--border));
   }
