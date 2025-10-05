@@ -5,12 +5,90 @@ Implements ARIMA, Moving Average, and basic models without TensorFlow dependency
 
 import numpy as np
 import pandas as pd
+import os
+import pickle
+import joblib
+from datetime import datetime, timedelta
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.preprocessing import MinMaxScaler
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import warnings
 warnings.filterwarnings('ignore')
+
+# Create models directory if it doesn't exist
+MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+if not os.path.exists(MODELS_DIR):
+    os.makedirs(MODELS_DIR)
+
+class PersistentModel:
+    """Base class for models with persistence functionality"""
+    
+    def get_model_path(self, symbol, model_type):
+        """Get the file path for storing the model"""
+        today = datetime.now().strftime("%Y%m%d")
+        filename = f"{symbol}_{model_type}_{today}.pkl"
+        return os.path.join(MODELS_DIR, filename)
+    
+    def save_model(self, symbol, model_type):
+        """Save the trained model to disk"""
+        try:
+            model_path = self.get_model_path(symbol, model_type)
+            model_data = {
+                'model': self,
+                'trained_at': datetime.now(),
+                'symbol': symbol,
+                'model_type': model_type
+            }
+            with open(model_path, 'wb') as f:
+                pickle.dump(model_data, f)
+            print(f"Model saved to {model_path}")
+            return True
+        except Exception as e:
+            print(f"Error saving model: {e}")
+            return False
+    
+    @classmethod
+    def load_model(cls, symbol, model_type):
+        """Load a trained model from disk"""
+        try:
+            # Try today's model first
+            today = datetime.now().strftime("%Y%m%d")
+            model_path = os.path.join(MODELS_DIR, f"{symbol}_{model_type}_{today}.pkl")
+            
+            if not os.path.exists(model_path):
+                # Try models from the last 7 days
+                for days_back in range(1, 8):
+                    date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
+                    model_path = os.path.join(MODELS_DIR, f"{symbol}_{model_type}_{date}.pkl")
+                    if os.path.exists(model_path):
+                        break
+                else:
+                    return None
+            
+            with open(model_path, 'rb') as f:
+                model_data = pickle.load(f)
+            
+            print(f"Model loaded from {model_path}")
+            return model_data['model']
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            return None
+    
+    def is_model_fresh(self, symbol, model_type, max_age_hours=24):
+        """Check if a saved model exists and is fresh enough"""
+        try:
+            today = datetime.now().strftime("%Y%m%d")
+            model_path = os.path.join(MODELS_DIR, f"{symbol}_{model_type}_{today}.pkl")
+            
+            if os.path.exists(model_path):
+                # Check if model is fresh enough
+                mod_time = datetime.fromtimestamp(os.path.getmtime(model_path))
+                age_hours = (datetime.now() - mod_time).total_seconds() / 3600
+                return age_hours < max_age_hours
+            return False
+        except:
+            return False
 
 class ModelMetrics:
     """Calculate and store evaluation metrics for forecasting models"""
@@ -62,8 +140,8 @@ class ModelMetrics:
             'direction_accuracy': float(direction_accuracy)
         }
 
-class AdvancedARIMA:
-    """Enhanced ARIMA model with automatic parameter selection"""
+class AdvancedARIMA(PersistentModel):
+    """Enhanced ARIMA model with automatic parameter selection and persistence"""
     
     def __init__(self, max_p=3, max_d=2, max_q=3):
         self.max_p = max_p
@@ -125,8 +203,8 @@ class AdvancedARIMA:
             return np.full(steps, data[-1])
         return np.zeros(steps)
 
-class MovingAverageModel:
-    """Enhanced Moving Average with multiple techniques"""
+class MovingAverageModel(PersistentModel):
+    """Enhanced Moving Average with multiple techniques and persistence"""
     
     def __init__(self, window_sizes=[5, 10, 20], use_exponential=True):
         self.window_sizes = window_sizes
@@ -164,6 +242,7 @@ class MovingAverageModel:
         if len(data) == 0:
             return np.zeros(steps)
             
+        data = np.array(data)
         predictions = []
         
         # Simple moving averages
@@ -178,26 +257,47 @@ class MovingAverageModel:
                 if window in self.exp_models:
                     try:
                         exp_pred = self.exp_models[window].forecast(steps)
-                        if hasattr(exp_pred, '__iter__'):
-                            predictions.extend(exp_pred[:steps])
+                        if hasattr(exp_pred, '__iter__') and len(exp_pred) > 0:
+                            predictions.append(exp_pred[0])  # Use first prediction
                         else:
-                            predictions.append(exp_pred)
+                            predictions.append(float(exp_pred))
                     except:
                         continue
         
         # Ensemble average
         if predictions:
             base_pred = np.mean(predictions)
-            # Add some variation for multi-step predictions
+            # Add realistic variation for multi-step predictions
             result = []
+            current_price = data[-1]
+            
             for i in range(steps):
-                # Add small random walk
-                pred = base_pred * (1 + np.random.normal(0, 0.01))
+                # Small trend adjustment (much smaller random walk)
+                trend_factor = 1 + np.random.normal(0, 0.005)  # 0.5% variation
+                pred = base_pred * trend_factor
+                
+                # Ensure prediction stays within reasonable bounds (±20% of current price)
+                max_change = 0.2 * current_price
+                if abs(pred - current_price) > max_change:
+                    pred = current_price + np.sign(pred - current_price) * max_change
+                
                 result.append(pred)
                 base_pred = pred  # Use previous prediction as base
+                
             return np.array(result)
         
-        # Fallback to last value with small trend
+        # Fallback to last value with minimal trend
+        last_price = data[-1]
+        trend = 0.0
+        if len(data) >= 2:
+            trend = (data[-1] - data[-2]) / data[-2] * 0.1  # 10% of recent trend
+        
+        result = []
+        for i in range(steps):
+            pred = last_price * (1 + trend * (i + 1))
+            result.append(pred)
+        
+        return np.array(result)
         if len(data) > 1:
             trend = (data[-1] - data[-2]) / data[-2] if data[-2] != 0 else 0
             result = []
@@ -210,8 +310,8 @@ class MovingAverageModel:
         
         return np.full(steps, data[-1] if len(data) > 0 else 0)
 
-class SimpleLSTM:
-    """Simplified LSTM-like model using statistical methods"""
+class SimpleLSTM(PersistentModel):
+    """Simplified LSTM-like model using statistical methods with persistence"""
     
     def __init__(self, sequence_length=20):
         self.sequence_length = sequence_length
@@ -251,9 +351,10 @@ class SimpleLSTM:
         if self.model_params is None or len(data) == 0:
             return np.full(steps, data[-1] if len(data) > 0 else 0)
         
-        # Scale input data
+        # Scale input data using the same scaler fitted during training
         try:
-            scaled_data = self.scaler.transform(np.array(data).reshape(-1, 1)).flatten()
+            data_array = np.array(data).reshape(-1, 1)
+            scaled_data = self.scaler.transform(data_array).flatten()
         except:
             return np.full(steps, data[-1] if len(data) > 0 else 0)
         
@@ -279,25 +380,24 @@ class SimpleLSTM:
                 similarities = np.array(similarities)
                 if np.sum(similarities) > 0:
                     weights = similarities / np.sum(similarities)
-                    pred = np.sum(targets * weights)
+                    scaled_pred = np.sum(weights * targets)
                 else:
-                    pred = targets[-1] if len(targets) > 0 else current_sequence[-1]
+                    scaled_pred = targets[-1] if len(targets) > 0 else current_sequence[-1]
             else:
-                pred = current_sequence[-1]
+                scaled_pred = current_sequence[-1]
+            
+            # Inverse transform to get back to original scale
+            try:
+                pred = self.scaler.inverse_transform([[scaled_pred]])[0][0]
+            except:
+                pred = data[-1] if len(data) > 0 else 0
             
             predictions.append(pred)
             
             # Update sequence for next prediction
-            current_sequence = np.append(current_sequence[1:], pred)
+            current_sequence = np.append(current_sequence[1:], scaled_pred)
         
-        # Inverse transform
-        try:
-            predictions = self.scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
-        except:
-            # Fallback
-            predictions = np.array(predictions) * np.std(data) + np.mean(data)
-        
-        return predictions
+        return np.array(predictions)
 
 class SimpleGRU:
     """Simplified GRU-like model using statistical methods"""
@@ -500,3 +600,37 @@ def create_model(model_type, **kwargs):
     else:
         # Default fallback
         return MovingAverageModel(**kwargs)
+
+def create_or_load_model(symbol, model_type, force_retrain=False, **kwargs):
+    """Create a new model or load existing one with persistence"""
+    
+    model_type = model_type.lower()
+    
+    # Try to load existing model if not forcing retrain
+    if not force_retrain:
+        # Check if we have a fresh model
+        temp_model = create_model(model_type, **kwargs)
+        if temp_model.is_model_fresh(symbol, model_type, max_age_hours=24):
+            loaded_model = temp_model.load_model(symbol, model_type)
+            if loaded_model is not None:
+                print(f"Using cached {model_type} model for {symbol}")
+                return loaded_model
+    
+    # Create new model
+    print(f"Training new {model_type} model for {symbol}")
+    model = create_model(model_type, **kwargs)
+    return model
+
+def fit_and_save_model(model, data, symbol, model_type):
+    """Fit a model and save it for future use"""
+    try:
+        # Fit the model
+        fitted_model = model.fit(data)
+        
+        # Save the fitted model
+        fitted_model.save_model(symbol, model_type)
+        
+        return fitted_model
+    except Exception as e:
+        print(f"Error fitting and saving model: {e}")
+        return model.fit(data)  # Fallback to just fitting without saving

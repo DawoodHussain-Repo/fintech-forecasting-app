@@ -9,7 +9,11 @@ import {
   Loader as LoaderIcon,
   BarChart3,
 } from "lucide-react";
-import { fetchMarketSnapshot, type RangeOption } from "@/lib/alpha-vantage";
+import {
+  fetchMarketSnapshot,
+  type RangeOption,
+  sliceCandlesForRange,
+} from "@/lib/alpha-vantage";
 import type { MarketSnapshot } from "@/lib/types";
 import CandlestickChart from "@/components/candlestick-chart";
 import { Button } from "@/components/ui/button";
@@ -25,10 +29,13 @@ export default function StockPage() {
   const [selectedRange, setSelectedRange] = useState<RangeOption>("1M");
   const [forecastData, setForecastData] = useState<{
     model_type?: string;
-    forecast?: { predicted_price?: number; trend?: string };
-    metrics?: { confidence?: number };
+    forecast?: any[];
+    metrics?: { confidence?: number; mse?: number; mae?: number };
+    created_at?: string;
+    cached?: boolean;
   } | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastHorizon, setForecastHorizon] = useState(24);
 
   const loadStockData = useCallback(async () => {
     try {
@@ -43,31 +50,53 @@ export default function StockPage() {
     }
   }, [symbol]);
 
+  // Get filtered candles for the selected range
+  const getFilteredCandles = useCallback(() => {
+    if (!data?.candles) return [];
+    return sliceCandlesForRange(data.candles, selectedRange);
+  }, [data?.candles, selectedRange]);
+
   useEffect(() => {
     loadStockData();
-  }, [symbol, selectedRange, loadStockData]);
+  }, [symbol, loadStockData]);
+
+  // Clear forecast data when range changes to avoid confusion
+  useEffect(() => {
+    setForecastData(null);
+  }, [selectedRange]);
 
   const handleGenerateForecast = async (modelType: string) => {
     setForecastLoading(true);
+    setForecastData(null);
     try {
+      // Get the last 5 days of data for forecasting
+      const allCandles = data?.candles || [];
+      const last5Days = allCandles.slice(-120); // Approximately 5 days of hourly data
+
       const response = await fetch("/api/forecast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           symbol,
           model_type: modelType,
-          horizon_hours: 72,
+          horizon: forecastHorizon,
+          retrain: true,
+          historical_data: last5Days, // Send recent data for training
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate forecast");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate forecast");
       }
 
       const result = await response.json();
       setForecastData(result);
     } catch (err) {
       console.error("Forecast error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to generate forecast"
+      );
     } finally {
       setForecastLoading(false);
     }
@@ -99,7 +128,7 @@ export default function StockPage() {
     );
   }
 
-  const { quote, candles } = data;
+  const { quote } = data;
   const isPositive = quote.changePercent >= 0;
 
   return (
@@ -203,10 +232,10 @@ export default function StockPage() {
             </div>
           </div>
 
-          {candles && candles.length > 0 ? (
+          {data?.candles && data.candles.length > 0 ? (
             <CandlestickChart
-              historicalData={candles}
-              forecastData={[]}
+              historicalData={getFilteredCandles()}
+              forecastData={forecastData?.forecast || []}
               symbol={symbol}
               loading={loading}
             />
@@ -223,74 +252,154 @@ export default function StockPage() {
             AI Forecasting
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Button
-              onClick={() => handleGenerateForecast("moving_average")}
-              disabled={forecastLoading}
-              className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-            >
-              {forecastLoading ? (
-                <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Moving Average
-            </Button>
-            <Button
-              onClick={() => handleGenerateForecast("arima")}
-              disabled={forecastLoading}
-              className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-            >
-              {forecastLoading ? (
-                <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              ARIMA Model
-            </Button>
-            <Button
-              onClick={() => handleGenerateForecast("lstm")}
-              disabled={forecastLoading}
-              className="bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
-            >
-              {forecastLoading ? (
-                <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              LSTM Neural Network
-            </Button>
+          {/* Horizon Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
+              Forecast Horizon (Hours)
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {[6, 12, 24, 48, 72, 168].map((hours) => (
+                <Button
+                  key={hours}
+                  onClick={() => setForecastHorizon(hours)}
+                  variant={forecastHorizon === hours ? "default" : "outline"}
+                  size="sm"
+                  className={
+                    forecastHorizon === hours
+                      ? "bg-primary text-black"
+                      : "border-primary/20 text-primary hover:bg-primary/10"
+                  }
+                >
+                  {hours}h
+                </Button>
+              ))}
+            </div>
           </div>
 
-          {forecastData && (
-            <div className="border border-primary/20 rounded-lg p-4 bg-primary/5">
-              <h3 className="font-semibold text-lg mb-2 text-primary">
-                Forecast Results
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Model Selection */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="space-y-2">
+              <Button
+                onClick={() => handleGenerateForecast("moving_average")}
+                disabled={forecastLoading}
+                className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              >
+                {forecastLoading ? (
+                  <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Moving Average
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Simple trend-following model
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                onClick={() => handleGenerateForecast("arima")}
+                disabled={forecastLoading}
+                className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              >
+                {forecastLoading ? (
+                  <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                ARIMA Model
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Statistical time series model
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                onClick={() => handleGenerateForecast("lstm")}
+                disabled={forecastLoading}
+                className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              >
+                {forecastLoading ? (
+                  <LoaderIcon className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                LSTM Neural Network
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Deep learning model
+              </p>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {forecastLoading && (
+            <div className="border border-primary/20 rounded-lg p-6 bg-primary/5 text-center">
+              <LoaderIcon className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-primary">
+                Generating {forecastHorizon}h forecast...
+              </p>
+            </div>
+          )}
+
+          {/* Forecast Results */}
+          {forecastData && !forecastLoading && (
+            <div className="border border-primary/20 rounded-lg p-6 bg-primary/5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg text-primary">
+                  Forecast Results
+                </h3>
+                {forecastData.cached && (
+                  <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-300 rounded">
+                    Cached
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-muted-foreground">Model</p>
-                  <p className="font-semibold text-primary">
-                    {forecastData.model_type}
+                  <p className="font-semibold text-primary capitalize">
+                    {forecastData.model_type?.replace("_", " ")}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">
-                    Predicted Price
-                  </p>
+                  <p className="text-xs text-muted-foreground">Horizon</p>
                   <p className="font-semibold text-primary">
-                    $
-                    {forecastData.forecast?.predicted_price?.toFixed(2) ||
-                      "N/A"}
+                    {forecastHorizon} hours
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Confidence</p>
+                  <p className="text-xs text-muted-foreground">MAE</p>
                   <p className="font-semibold text-primary">
-                    {forecastData.metrics?.confidence?.toFixed(1) || "N/A"}%
+                    {forecastData.metrics?.mae?.toFixed(3) || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Trend</p>
+                  <p className="text-xs text-muted-foreground">MSE</p>
                   <p className="font-semibold text-primary">
-                    {forecastData.forecast?.trend || "N/A"}
+                    {forecastData.metrics?.mse?.toFixed(3) || "N/A"}
                   </p>
                 </div>
               </div>
+
+              {/* Forecast Preview */}
+              {forecastData.forecast && forecastData.forecast.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Next few predictions:
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {forecastData.forecast
+                      .slice(0, 4)
+                      .map((point: any, index: number) => (
+                        <div key={index} className="bg-primary/10 rounded p-2">
+                          <p className="text-xs text-muted-foreground">
+                            +{index + 1}h
+                          </p>
+                          <p className="font-semibold text-primary">
+                            ${point.value?.toFixed(2) || "N/A"}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

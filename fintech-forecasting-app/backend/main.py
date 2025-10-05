@@ -20,7 +20,7 @@ from database import (
     store_price_data, get_price_data, store_forecast, 
     get_latest_forecast, store_model_performance
 )
-from forecasting_simple_noml import create_model, ModelMetrics
+from forecasting_simple_noml import create_model, ModelMetrics, create_or_load_model, fit_and_save_model
 from data_loader import load_data_async, ensure_symbol_data
 
 # Configure logging
@@ -238,6 +238,7 @@ def generate_forecast(symbol: str):
         model_type = data.get('model_type', 'lstm').lower()
         horizon = data.get('horizon', 24)  # hours
         retrain = data.get('retrain', False)
+        historical_data = data.get('historical_data', None)  # Optional historical data from frontend
         
         # Validate inputs
         if model_type not in ['moving_average', 'arima', 'lstm', 'gru', 'transformer']:
@@ -246,20 +247,39 @@ def generate_forecast(symbol: str):
         if not 1 <= horizon <= 168:  # 1 hour to 1 week
             return jsonify({"error": "Horizon must be between 1 and 168 hours"}), 400
         
-        # Get historical data, ensure it exists
-        price_data = get_price_data(symbol.upper(), 2000)
-        
-        if len(price_data) < 10:
-            # Try to fetch data from API
-            logger.info(f"Insufficient data for {symbol}, attempting to fetch...")
-            if ensure_symbol_data(symbol.upper()):
-                price_data = get_price_data(symbol.upper(), 2000)
+        # Use provided historical data or fetch from database
+        if historical_data and isinstance(historical_data, list) and len(historical_data) > 0:
+            logger.info(f"Using provided historical data: {len(historical_data)} points")
+            # Convert frontend data format to PriceData format
+            price_data = []
+            for item in historical_data[-120:]:  # Use last 120 points (5 days)
+                if isinstance(item, dict) and 'close' in item and 'timestamp' in item:
+                    from database import PriceData
+                    pd_item = PriceData(
+                        symbol=symbol.upper(),
+                        timestamp=datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')),
+                        open=item.get('open', item['close']),
+                        high=item.get('high', item['close']),
+                        low=item.get('low', item['close']),
+                        close=item['close'],
+                        volume=item.get('volume', 0)
+                    )
+                    price_data.append(pd_item)
+        else:
+            # Get historical data from database
+            price_data = get_price_data(symbol.upper(), 2000)
             
-            # If still no data, generate mock data
             if len(price_data) < 10:
-                logger.info(f"Generating mock data for {symbol}")
-                mock_data = generate_mock_price_data(symbol.upper(), 100)
-                price_data = mock_data
+                # Try to fetch data from API
+                logger.info(f"Insufficient data for {symbol}, attempting to fetch...")
+                if ensure_symbol_data(symbol.upper()):
+                    price_data = get_price_data(symbol.upper(), 2000)
+                
+                # If still no data, generate mock data
+                if len(price_data) < 10:
+                    logger.info(f"Generating mock data for {symbol}")
+                    mock_data = generate_mock_price_data(symbol.upper(), 100)
+                    price_data = mock_data
         
         # Check for existing forecast
         if not retrain:
@@ -277,16 +297,16 @@ def generate_forecast(symbol: str):
                     "cached": True
                 })
         
-        # Create and train model
-        logger.info(f"Creating {model_type} model for {symbol}")
-        model = create_model(model_type)
+        # Create or load model with persistence
+        logger.info(f"Creating/loading {model_type} model for {symbol}")
+        model = create_or_load_model(symbol.upper(), model_type, force_retrain=retrain)
         
         # Prepare price data for training
         price_values = np.array([pd.close for pd in price_data])
         
-        # Fit model
+        # Fit model (will load from cache if available and fresh)
         logger.info(f"Training model on {len(price_values)} data points")
-        model.fit(price_values)
+        model = fit_and_save_model(model, price_values, symbol.upper(), model_type)
         
         # Generate predictions
         logger.info(f"Generating {horizon} step forecast")
