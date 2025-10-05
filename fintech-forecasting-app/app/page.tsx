@@ -1,124 +1,177 @@
-import Link from "next/link";
+"use client";
 
-const highlights = [
+import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { gsap } from "gsap";
+import { TrendingUp, Activity, BarChart3, ChevronRight } from "lucide-react";
+
+const features = [
   {
-    title: "🤖 AI-Powered Forecasting",
+    icon: Activity,
+    title: "AI-Powered Forecasting",
     description:
-      "Advanced ML models including ARIMA, LSTM, and Transformer networks for accurate market predictions.",
+      "Advanced ML models including ARIMA, LSTM, and Transformer networks for accurate predictions.",
   },
   {
-    title: "🌍 Multi-Asset Coverage",
+    icon: TrendingUp,
+    title: "Multi-Asset Coverage",
     description:
       "Track stocks, crypto, and forex with real-time data and comprehensive analytics.",
   },
   {
-    title: "📊 Interactive Analytics",
+    icon: BarChart3,
+    title: "Interactive Analytics",
     description:
-      "Professional candlestick charts with technical indicators and portfolio management tools.",
+      "Professional charts with technical indicators and portfolio management tools.",
   },
 ];
 
-export default function LandingPage() {
+export default function HomePage() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const featuresRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (heroRef.current) {
+      gsap.fromTo(
+        heroRef.current.children,
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          stagger: 0.2,
+          ease: "power3.out",
+        }
+      );
+    }
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20" />
-        <div className="relative mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="mb-8">
-              <span className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-400 ring-1 ring-blue-500/20">
-                FinTech Forecaster
-                <span className="text-blue-300">v1.0</span>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: "1s" }} />
+      </div>
+
+      <div className="relative z-10">
+        {/* Hero Section */}
+        <div className="container mx-auto px-4 pt-20 pb-32">
+          <div ref={heroRef} className="max-w-4xl mx-auto text-center space-y-8">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 glass border border-primary/20 rounded-full">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              <span className="text-sm text-primary font-medium">
+                AI-Powered Trading Platform
               </span>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl">
-              AI-Powered
-              <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {" "}
-                Financial{" "}
-              </span>
-              Forecasting
+
+            {/* Main Title */}
+            <h1 className="text-5xl md:text-7xl font-bold text-primary leading-tight">
+              Financial Forecasting
+              <br />
+              <span className="text-foreground">Redefined</span>
             </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-300">
-              Advanced machine learning models for stock, crypto, and forex
-              prediction. Real-time market data with professional-grade
-              analytics and forecasting tools.
+
+            {/* Subtitle */}
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+              Advanced machine learning models for stock, crypto, and forex prediction.
+              Real-time market data with professional-grade analytics.
             </p>
-            <div className="mt-10 flex items-center justify-center gap-x-6">
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
               <Link
                 href="/dashboard"
-                className="group inline-flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition-colors"
+                className="group px-8 py-3  bg-primary text-green-500 font-semibold rounded-lg transition-all duration-300  inline-flex items-center gap-2"
               >
                 Launch Dashboard
-                <span className="transition-transform group-hover:translate-x-1">
-                  →
-                </span>
+                <ChevronRight className="w-4 h-4  transition-transform group-hover:translate-x-1" />
               </Link>
+              
               <Link
                 href="/forecast"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-600 px-6 py-3 text-sm font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
+                className="px-8 py-3 glass border border-primary/20 text-primary font-semibold rounded-lg transition-all duration-300 hover:border-primary/40"
               >
                 Try Forecasting
               </Link>
             </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-8 pt-16 max-w-2xl mx-auto">
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-primary">5+</div>
+                <div className="text-sm text-muted-foreground">ML Models</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-primary">24/7</div>
+                <div className="text-sm text-muted-foreground">Live Data</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-3xl font-bold text-primary">1000+</div>
+                <div className="text-sm text-muted-foreground">Assets</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Features Section */}
-      <div className="py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Professional Trading Tools
+        {/* Features Section */}
+        <div className="container mx-auto px-4 py-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-primary mb-4">
+                Professional Trading Tools
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                Everything you need for advanced financial market analysis
+              </p>
+            </div>
+
+            <div
+              ref={featuresRef}
+              className="grid md:grid-cols-3 gap-6"
+            >
+              {features.map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={feature.title}
+                    className="glass p-6 space-y-4 hover:border-primary/30 transition-all"
+                  >
+                    <div className="w-12 h-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                      <Icon className="w-6 h-6 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold text-foreground">
+                      {feature.title}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="container mx-auto px-4 py-20">
+          <div className="max-w-4xl mx-auto glass p-12 text-center space-y-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-primary">
+              Ready to Start Trading?
             </h2>
-            <p className="mt-6 text-lg leading-8 text-gray-300">
-              Everything you need for advanced financial market analysis and
-              prediction.
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Join thousands of traders using AI-powered insights to make smarter investment decisions.
             </p>
-          </div>
-          <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-            <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
-              {highlights.map((feature) => (
-                <div key={feature.title} className="flex flex-col">
-                  <dt className="text-base font-semibold leading-7 text-white mb-2">
-                    {feature.title}
-                  </dt>
-                  <dd className="mt-1 flex flex-auto flex-col text-base leading-7 text-gray-300">
-                    <p className="flex-auto">{feature.description}</p>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="relative isolate mt-32 px-6 py-32 sm:mt-56 sm:py-40 lg:px-8">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10" />
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Ready to start forecasting?
-          </h2>
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-gray-300">
-            Access real-time market data and AI-powered predictions for informed
-            trading decisions.
-          </p>
-          <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Link
-              href="/dashboard"
-              className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:bg-blue-500 transition-colors"
-            >
-              Get started
-            </Link>
-            <Link
-              href="/about"
-              className="text-sm font-semibold leading-6 text-gray-300 hover:text-white transition-colors"
-            >
-              Learn more <span aria-hidden={true}>→</span>
-            </Link>
+            <div className="pt-6">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-green-500 border-1 !rounded-full border-green-500 font-semibold rounded-lg hover:text-black hover:bg-green-500 transition-all duration-300 hover:shadow-lg hover:shadow-primary/50"
+              >
+                Get Started Now
+                <ChevronRight className="w-5 h-5" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>

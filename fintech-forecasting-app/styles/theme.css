@@ -1,96 +1,154 @@
 @layer base {
   :root {
-    --background: 222 60% 98%;
-    --foreground: 224 71.4% 6.1%;
+    /* Black + Neon Green Theme */
+    --background: 0 0% 7%; /* Deep black */
+    --foreground: 120 100% 95%; /* Light neon green tint */
 
-    --muted: 220 20% 80%;
-    --muted-foreground: 220 14.3% 35.9%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 120 20% 65%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 120 100% 95%;
 
-    --card: 222 60% 99%;
-    --card-foreground: 224 71.4% 6.1%;
+    --card: 0 0% 8%;
+    --card-foreground: 120 100% 95%;
 
-    --border: 215 15% 85%;
-    --input: 214.3 31.8% 94.4%;
+    --border: 120 100% 50% / 0.2; /* Neon green border with transparency */
+    --input: 0 0% 12%;
 
-    --primary: 245 80% 60%; /* Deep blue-purple */
-    --primary-foreground: 210 40% 98%;
+    --primary: 120 100% 50%; /* Pure neon green */
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 160 60% 45%; /* Accent green */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 120 100% 40%; /* Darker neon green */
+    --secondary-foreground: 0 0% 10%;
 
-    --accent: 199 89% 58%; /* Vibrant blue */
-    --accent-foreground: 210 40% 98%;
+    --accent: 120 100% 60%; /* Bright neon green */
+    --accent-foreground: 0 0% 5%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --ring: 245 80% 60%;
+    --ring: 120 100% 50%;
 
     --radius: 1.25rem;
 
-    /* Glassmorphism */
-    --glass-bg: hsla(222, 60%, 99%, 0.7);
-    --glass-blur: 16px;
-    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
-    --glass-border: 1px solid rgba(255, 255, 255, 0.18);
-    --gradient-main: linear-gradient(
+    /* Liquid Glass Effects */
+    --glass-bg: linear-gradient(
       135deg,
-      hsl(245, 80%, 60%) 0%,
-      hsl(199, 89%, 58%) 100%
+      rgba(0, 255, 127, 0.05) 0%,
+      rgba(0, 20, 10, 0.9) 100%
     );
+    --glass-bg-hover: linear-gradient(
+      135deg,
+      rgba(0, 255, 127, 0.1) 0%,
+      rgba(0, 30, 15, 0.95) 100%
+    );
+    --glass-blur: 20px;
+    --glass-shadow: 0 8px 32px 0 rgba(0, 255, 127, 0.15),
+      0 0 0 1px rgba(0, 255, 127, 0.1) inset;
+    --glass-shadow-hover: 0 12px 48px 0 rgba(0, 255, 127, 0.25),
+      0 0 0 1px rgba(0, 255, 127, 0.2) inset, 0 0 20px 0 rgba(0, 255, 127, 0.3);
+    --glass-border: 1px solid rgba(0, 255, 127, 0.15);
+
+    /* Gradients */
+    --gradient-main: radial-gradient(
+        ellipse at top,
+        rgba(0, 255, 127, 0.15) 0%,
+        rgba(0, 0, 0, 1) 50%
+      ),
+      linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+
     --gradient-accent: linear-gradient(
       135deg,
-      hsl(160, 60%, 45%) 0%,
-      hsl(245, 80%, 60%) 100%
+      rgba(0, 255, 127, 0.2) 0%,
+      rgba(0, 255, 127, 0.05) 100%
     );
+
+    --gradient-neon: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 255, 127, 0.4) 50%,
+      transparent 100%
+    );
+
+    /* Neon glow effects */
+    --glow-sm: 0 0 10px rgba(0, 255, 127, 0.5);
+    --glow-md: 0 0 20px rgba(0, 255, 127, 0.6), 0 0 40px rgba(0, 255, 127, 0.3);
+    --glow-lg: 0 0 30px rgba(0, 255, 127, 0.7), 0 0 60px rgba(0, 255, 127, 0.4),
+      0 0 90px rgba(0, 255, 127, 0.2);
   }
 
   .dark {
-    --background: 222.2 84% 6.9%;
-    --foreground: 210 40% 98%;
+    /* Same theme - we're always dark */
+    --background: 0 0% 7%;
+    --foreground: 120 100% 95%;
 
-    --muted: 215 27.9% 18.9%;
-    --muted-foreground: 217.9 10.6% 74.9%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 120 20% 65%;
 
-    --popover: 222.2 84% 8.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 120 100% 95%;
 
-    --card: 222.2 84% 8.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 120 100% 95%;
 
-    --border: 217.2 32.6% 22.5%;
-    --input: 217.2 32.6% 22.5%;
+    --border: 120 100% 50% / 0.2;
+    --input: 0 0% 12%;
 
-    --primary: 245 80% 70%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 120 100% 50%;
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 160 60% 55%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 120 100% 40%;
+    --secondary-foreground: 0 0% 10%;
 
-    --accent: 199 89% 68%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 120 100% 60%;
+    --accent-foreground: 0 0% 5%;
 
     --destructive: 0 62.8% 40.6%;
     --destructive-foreground: 0 85.7% 97.3%;
 
-    --ring: 245 80% 70%;
+    --ring: 120 100% 50%;
 
-    --glass-bg: hsla(222, 84%, 8.9%, 0.7);
-    --glass-blur: 16px;
-    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.28);
-    --glass-border: 1px solid rgba(255, 255, 255, 0.12);
-    --gradient-main: linear-gradient(
+    --glass-bg: linear-gradient(
       135deg,
-      hsl(245, 80%, 70%) 0%,
-      hsl(199, 89%, 68%) 100%
+      rgba(0, 255, 127, 0.05) 0%,
+      rgba(0, 20, 10, 0.9) 100%
     );
+    --glass-bg-hover: linear-gradient(
+      135deg,
+      rgba(0, 255, 127, 0.1) 0%,
+      rgba(0, 30, 15, 0.95) 100%
+    );
+    --glass-blur: 20px;
+    --glass-shadow: 0 8px 32px 0 rgba(0, 255, 127, 0.15),
+      0 0 0 1px rgba(0, 255, 127, 0.1) inset;
+    --glass-shadow-hover: 0 12px 48px 0 rgba(0, 255, 127, 0.25),
+      0 0 0 1px rgba(0, 255, 127, 0.2) inset, 0 0 20px 0 rgba(0, 255, 127, 0.3);
+    --glass-border: 1px solid rgba(0, 255, 127, 0.15);
+
+    --gradient-main: radial-gradient(
+        ellipse at top,
+        rgba(0, 255, 127, 0.15) 0%,
+        rgba(0, 0, 0, 1) 50%
+      ),
+      linear-gradient(180deg, #000000 0%, #0a0a0a 100%);
+
     --gradient-accent: linear-gradient(
       135deg,
-      hsl(160, 60%, 55%) 0%,
-      hsl(245, 80%, 70%) 100%
+      rgba(0, 255, 127, 0.2) 0%,
+      rgba(0, 255, 127, 0.05) 100%
     );
+
+    --gradient-neon: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 255, 127, 0.4) 50%,
+      transparent 100%
+    );
+
+    --glow-sm: 0 0 10px rgba(0, 255, 127, 0.5);
+    --glow-md: 0 0 20px rgba(0, 255, 127, 0.6), 0 0 40px rgba(0, 255, 127, 0.3);
+    --glow-lg: 0 0 30px rgba(0, 255, 127, 0.7), 0 0 60px rgba(0, 255, 127, 0.4),
+      0 0 90px rgba(0, 255, 127, 0.2);
   }
 }
