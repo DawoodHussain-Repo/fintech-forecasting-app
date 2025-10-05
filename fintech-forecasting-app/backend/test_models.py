@@ -302,7 +302,7 @@ class TestConfig(unittest.TestCase):
     def test_config_attributes(self):
         """Test that required config attributes exist."""
         self.assertTrue(hasattr(Config, 'DATABASE_URL'))
-        self.assertTrue(hasattr(Config, 'ALPHA_VANTAGE_API_KEY'))
+        self.assertTrue(hasattr(Config, 'FINNHUB_API_KEY'))
         self.assertTrue(hasattr(Config, 'FLASK_PORT'))
         self.assertTrue(hasattr(Config, 'MODEL_UPDATE_INTERVAL'))
     

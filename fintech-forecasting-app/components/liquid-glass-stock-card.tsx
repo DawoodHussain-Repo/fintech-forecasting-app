@@ -58,6 +58,7 @@ export function LiquidGlassStockCard({
   }, [index]);
 
   const handleWatchlistToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
 
     if (isInWatchlist) {
@@ -73,11 +74,20 @@ export function LiquidGlassStockCard({
     }
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Only trigger onClick if not clicking on the star button
+    if (onClick && e.currentTarget === e.target) {
+      onClick();
+    } else if (onClick && !(e.target as HTMLElement).closest("button")) {
+      onClick();
+    }
+  };
+
   return (
     <div
       ref={cardRef}
       className="glass group cursor-pointer relative overflow-hidden"
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       {/* Card content */}
       <div className="p-6 relative z-10">

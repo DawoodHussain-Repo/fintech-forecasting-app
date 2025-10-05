@@ -142,7 +142,7 @@ export function ChartCard({
         <CardTitle className="flex flex-col gap-1 text-2xl">
           <span>{symbol}</span>
           <span className="text-sm font-normal text-muted-foreground">
-            Interactive candlestick chart powered by Alpha Vantage
+            Interactive candlestick chart powered by Finnhub
           </span>
         </CardTitle>
         <div className="flex items-center gap-1 rounded-full bg-card/70 p-1 shadow-inner">

@@ -18,7 +18,7 @@ class Config:
     MONGODB_DB_NAME = os.getenv('MONGODB_DB_NAME', 'fintech_forecasting')
     
     # API Configuration
-    ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')
+    FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY', 'demo')
     
     # Flask Configuration
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
@@ -54,7 +54,7 @@ class Config:
     @classmethod
     def validate_config(cls) -> bool:
         """Validate critical configuration values."""
-        required_vars = ['ALPHA_VANTAGE_API_KEY']
+        required_vars = ['FINNHUB_API_KEY']
         missing_vars = []
         
         for var in required_vars:

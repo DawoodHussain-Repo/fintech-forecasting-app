@@ -5,6 +5,7 @@ This version avoids the threading issues that can occur on Windows.
 
 import os
 import sys
+import signal
 import logging
 from pathlib import Path
 
@@ -22,8 +23,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+logger = logging.getLogger(__name__)
+
+def cleanup_handler(signum, frame):
+    """Handle cleanup on shutdown."""
+    logger.info("Shutting down server...")
+    try:
+        from main import cleanup_old_cache
+        logger.info("Running cache cleanup...")
+        cleanup_old_cache()
+        logger.info("Cleanup completed successfully")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+    sys.exit(0)
+
 if __name__ == '__main__':
     try:
+        # Register signal handlers for graceful shutdown
+        signal.signal(signal.SIGINT, cleanup_handler)
+        signal.signal(signal.SIGTERM, cleanup_handler)
+        
         # Import after setting environment
         from main import app
         
@@ -41,6 +60,8 @@ if __name__ == '__main__':
             use_reloader=False,
             threaded=True
         )
+    except KeyboardInterrupt:
+        cleanup_handler(None, None)
     except Exception as e:
         print(f"Error starting server: {e}")
         print("Try running: pip install flask flask-cors pymongo python-dotenv")

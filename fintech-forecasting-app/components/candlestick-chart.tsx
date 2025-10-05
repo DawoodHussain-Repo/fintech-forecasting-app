@@ -4,15 +4,30 @@ import {
   CategoryScale,
   LinearScale,
   TimeScale,
+  PointElement,
+  LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
 import "chartjs-adapter-date-fns";
 
 // Register ChartJS components
-ChartJS.register(CategoryScale, LinearScale, TimeScale, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  TimeScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface PriceData {
   timestamp: string;

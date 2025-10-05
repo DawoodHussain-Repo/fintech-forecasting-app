@@ -77,9 +77,7 @@ export function Footer() {
             &copy; {new Date().getFullYear()} FinTech Forecaster. All rights
             reserved.
           </p>
-          <p className="text-xs">
-            Powered by Alpha Vantage API & Advanced ML Models
-          </p>
+          <p className="text-xs">Powered by Finnhub API & Advanced ML Models</p>
         </div>
       </div>
 

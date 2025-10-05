@@ -56,4 +56,4 @@ waitress>=2.1.0  # Windows-compatible WSGI server
 
 # Financial Data APIs
 yfinance>=0.2.0
-alpha-vantage>=2.3.0
+finnhub-python>=2.4.0

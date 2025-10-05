@@ -84,6 +84,117 @@ def health_check():
         "version": "1.0.0"
     })
 
+def cleanup_old_cache():
+    """Clean up expired cache entries from database. Called during server shutdown."""
+    try:
+        from database import db_manager
+        cache_collection = db_manager.get_collection('api_cache')
+        
+        # Delete all expired cache entries
+        result = cache_collection.delete_many({
+            'expires_at': {'$lt': datetime.now(timezone.utc)}
+        })
+        
+        logger.info(f"Cleanup: Deleted {result.deleted_count} expired cache entries")
+        return result.deleted_count
+    except Exception as e:
+        logger.error(f"Error during cache cleanup: {e}")
+        return 0
+
+@app.route('/api/cache/clear', methods=['POST'])
+def clear_cache():
+    """Clear API cache (admin endpoint)."""
+    try:
+        from database import db_manager
+        cache_collection = db_manager.get_collection('api_cache')
+        
+        # Optional: clear cache older than specified minutes
+        minutes = request.json.get('older_than_minutes', 60) if request.json else 60
+        
+        result = cache_collection.delete_many({
+            'created_at': {'$lt': datetime.now(timezone.utc) - timedelta(minutes=minutes)}
+        })
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': result.deleted_count,
+            'message': f'Cleared {result.deleted_count} cached entries older than {minutes} minutes'
+        })
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/candles/<symbol>', methods=['GET'])
+def get_candles(symbol: str):
+    """Get historical candle data using yfinance with MongoDB caching."""
+    try:
+        import yfinance as yf
+        from database import db_manager
+        
+        symbol = symbol.upper()
+        range_param = request.args.get('range', '1M')
+        
+        # Check cache first
+        cache_collection = db_manager.get_collection('api_cache')
+        cache_key = f"candles_{symbol}_{range_param}"
+        
+        cached_data = cache_collection.find_one({
+            'symbol': symbol,
+            'cache_type': 'candles',
+            'range': range_param,
+            'created_at': {'$gte': datetime.now(timezone.utc) - timedelta(minutes=5)}
+        })
+        
+        if cached_data:
+            logger.info(f"Cache hit for {symbol} candles")
+            return jsonify({'candles': cached_data['data'], 'cached': True})
+        
+        # Map range to yfinance period
+        period_map = {
+            '1D': '5d',
+            '1W': '1mo',
+            '1M': '3mo',
+            '6M': '6mo',
+            '1Y': '1y',
+        }
+        period = period_map.get(range_param, '3mo')
+        
+        # Fetch data from yfinance
+        logger.info(f"Fetching fresh candles for {symbol}")
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period)
+        
+        # Convert to candle format
+        candles = []
+        for date, row in hist.iterrows():
+            candles.append({
+                'timestamp': date.isoformat(),
+                'open': float(row['Open']),
+                'high': float(row['High']),
+                'low': float(row['Low']),
+                'close': float(row['Close']),
+                'volume': int(row['Volume']),
+            })
+        
+        # Store in cache
+        try:
+            cache_collection.insert_one({
+                'symbol': symbol,
+                'cache_type': 'candles',
+                'range': range_param,
+                'data': candles,
+                'created_at': datetime.now(timezone.utc)
+            })
+            logger.info(f"Cached candles for {symbol}")
+        except Exception as cache_err:
+            logger.warning(f"Failed to cache candles: {cache_err}")
+        
+        return jsonify({'candles': candles, 'cached': False})
+    
+    except Exception as e:
+        logger.error(f"Error fetching candles for {symbol}: {e}")
+        return jsonify({'error': str(e), 'candles': []}), 500
+
 @app.route('/api/data/<symbol>', methods=['GET'])
 def get_symbol_data(symbol: str):
     """Get historical data for a symbol."""

@@ -1,5 +1,5 @@
 """
-Optimized data loader for fetching and storing market data.
+Optimized data loader for fetching and storing market data using Finnhub API.
 """
 
 import logging
@@ -15,12 +15,12 @@ from database import PriceData, store_price_data, get_price_data
 logger = logging.getLogger(__name__)
 
 class DataLoader:
-    """Optimized data loader for market data."""
+    """Optimized data loader for market data using Finnhub API."""
     
     def __init__(self):
-        self.api_key = Config.ALPHA_VANTAGE_API_KEY
-        self.base_url = "https://www.alphavantage.co/query"
-        self.rate_limit_delay = 12  # Alpha Vantage free tier: 5 calls per minute
+        self.api_key = Config.FINNHUB_API_KEY
+        self.base_url = "https://finnhub.io/api/v1"
+        self.rate_limit_delay = 1  # Finnhub free tier: 60 calls per minute
         
     def load_initial_data(self):
         """Load initial data for popular symbols."""
@@ -60,59 +60,63 @@ class DataLoader:
         logger.info("Initial data load completed")
     
     def _fetch_and_store_symbol(self, symbol: str) -> bool:
-        """Fetch and store data for a single symbol."""
+        """Fetch and store data for a single symbol using Finnhub API."""
         try:
-            # Fetch daily data
+            # Calculate date range (get last 365 days of data)
+            to_timestamp = int(time.time())
+            from_timestamp = to_timestamp - (365 * 24 * 60 * 60)  # 1 year ago
+            
+            # Fetch daily candles from Finnhub
+            url = f"{self.base_url}/stock/candle"
             params = {
-                'function': 'TIME_SERIES_DAILY',
                 'symbol': symbol,
-                'outputsize': 'full',  # Get more historical data
-                'apikey': self.api_key
+                'resolution': 'D',  # Daily resolution
+                'from': from_timestamp,
+                'to': to_timestamp,
+                'token': self.api_key
             }
             
-            response = requests.get(self.base_url, params=params, timeout=30)
+            response = requests.get(url, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
             
             # Check for API errors
-            if 'Error Message' in data:
-                logger.error(f"API error for {symbol}: {data['Error Message']}")
+            if data.get('s') == 'no_data':
+                logger.error(f"No data available for {symbol}")
                 return False
             
-            if 'Note' in data:
-                logger.warning(f"Rate limit hit for {symbol}: {data['Note']}")
+            if 'error' in data:
+                logger.error(f"API error for {symbol}: {data['error']}")
                 return False
             
-            # Parse time series data
-            time_series_key = 'Time Series (Daily)'
-            if time_series_key not in data:
-                logger.error(f"No time series data found for {symbol}")
+            # Parse candle data
+            if not all(key in data for key in ['t', 'o', 'h', 'l', 'c', 'v']):
+                logger.error(f"Incomplete data received for {symbol}")
                 return False
             
-            time_series = data[time_series_key]
             stored_count = 0
             
             # Store data points
-            for date_str, values in time_series.items():
+            for i in range(len(data['t'])):
                 try:
-                    timestamp = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                    timestamp = datetime.fromtimestamp(data['t'][i], tz=timezone.utc)
                     
                     price_data = PriceData(
                         symbol=symbol,
                         timestamp=timestamp,
-                        open_price=float(values['1. open']),
-                        high=float(values['2. high']),
-                        low=float(values['3. low']),
-                        close=float(values['4. close']),
-                        volume=int(float(values['5. volume']))
+                        open_price=float(data['o'][i]),
+                        high=float(data['h'][i]),
+                        low=float(data['l'][i]),
+                        close=float(data['c'][i]),
+                        volume=int(float(data['v'][i]))
                     )
                     
                     if store_price_data(price_data):
                         stored_count += 1
                         
-                except (ValueError, KeyError) as e:
-                    logger.warning(f"Error parsing data for {symbol} on {date_str}: {e}")
+                except (ValueError, KeyError, IndexError) as e:
+                    logger.warning(f"Error parsing data for {symbol} at index {i}: {e}")
                     continue
             
             logger.info(f"Stored {stored_count} data points for {symbol}")

@@ -9,6 +9,9 @@ import { AlertCircle, X, TrendingUp } from "lucide-react";
 import { fetchMarketSnapshot } from "@/lib/alpha-vantage";
 import type { MarketSnapshot } from "@/lib/types";
 
+// Cache duration: 1 minute
+const CACHE_DURATION = 60 * 1000; // 60 seconds
+
 // Popular stocks to display
 const FEATURED_STOCKS = [
   "AAPL", // Apple
@@ -43,6 +46,10 @@ interface StockData {
   marketCap?: string;
 }
 
+// In-memory cache with timestamp
+let cachedStocks: StockData[] | null = null;
+let cacheTimestamp: number | null = null;
+
 export default function DashboardPage() {
   const router = useRouter();
   const [stocks, setStocks] = useState<StockData[]>([]);
@@ -50,6 +57,7 @@ export default function DashboardPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [usingCache, setUsingCache] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -64,10 +72,39 @@ export default function DashboardPage() {
     }
 
     loadFeaturedStocks();
+
+    // Set up auto-refresh every minute
+    const refreshInterval = setInterval(() => {
+      loadFeaturedStocks(true); // Silent refresh
+    }, CACHE_DURATION);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
-  const loadFeaturedStocks = async () => {
-    setLoading(true);
+  const isCacheValid = () => {
+    if (!cachedStocks || !cacheTimestamp) return false;
+    const now = Date.now();
+    return now - cacheTimestamp < CACHE_DURATION;
+  };
+
+  const loadFeaturedStocks = async (silent = false) => {
+    // Check if we can use cached data
+    if (isCacheValid() && cachedStocks) {
+      setStocks(cachedStocks);
+      setLoading(false);
+      setUsingCache(true);
+      if (!silent) {
+        console.log("📦 Using cached dashboard data");
+      }
+      return;
+    }
+
+    if (!silent) {
+      setLoading(true);
+    }
+    setUsingCache(false);
+    console.log("🔄 Fetching fresh dashboard data from API...");
+
     const stockData: StockData[] = [];
 
     for (const symbol of FEATURED_STOCKS) {
@@ -106,6 +143,10 @@ export default function DashboardPage() {
       }
     }
 
+    // Update cache
+    cachedStocks = stockData;
+    cacheTimestamp = Date.now();
+
     setStocks(stockData);
     setLoading(false);
   };
@@ -113,11 +154,8 @@ export default function DashboardPage() {
   const handleSearch = async (searchSymbol: string) => {
     setSearchLoading(true);
     try {
-      const data = await fetchMarketSnapshot(searchSymbol);
-      if (data.quote) {
-        // Navigate to detailed view
-        router.push(`/forecast?symbol=${encodeURIComponent(searchSymbol)}`);
-      }
+      // Navigate directly to stock detail page
+      router.push(`/stock/${encodeURIComponent(searchSymbol.toUpperCase())}`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Error searching";
       setToastMessage(errorMsg);
@@ -129,7 +167,7 @@ export default function DashboardPage() {
   };
 
   const handleStockClick = (symbol: string) => {
-    router.push(`/forecast?symbol=${encodeURIComponent(symbol)}`);
+    router.push(`/stock/${encodeURIComponent(symbol)}`);
   };
 
   return (

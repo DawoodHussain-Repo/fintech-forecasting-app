@@ -64,6 +64,18 @@ class DatabaseManager:
                 ("evaluation_date", DESCENDING)
             ])
             
+            # API cache indexes - for Finnhub quotes and yfinance candles
+            self.db.api_cache.create_index([
+                ("symbol", ASCENDING),
+                ("cache_type", ASCENDING),
+                ("created_at", DESCENDING)
+            ])
+            # TTL index to auto-delete old cache entries after 5 minutes
+            self.db.api_cache.create_index(
+                "created_at",
+                expireAfterSeconds=300  # 5 minutes cache
+            )
+            
             logger.info("Database indexes created successfully")
             
         except Exception as e:

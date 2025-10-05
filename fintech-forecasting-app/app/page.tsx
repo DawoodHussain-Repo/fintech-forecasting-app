@@ -90,7 +90,7 @@ export default function HomePage() {
               </Link>
               
               <Link
-                href="/forecast"
+                href="/dashboard"
                 className="px-8 py-3 glass border border-primary/20 text-primary font-semibold rounded-lg transition-all duration-300 hover:border-primary/40"
               >
                 Try Forecasting
