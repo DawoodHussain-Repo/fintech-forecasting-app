@@ -80,7 +80,13 @@ export async function fetchMarketSnapshot(
   const response = await fetch(`/api/alpha/${encodeURIComponent(symbol)}`);
 
   if (!response.ok) {
-    throw new Error("Failed to fetch market data");
+    // Try to get error message from response
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to fetch market data");
+    } catch {
+      throw new Error("Failed to fetch market data");
+    }
   }
 
   const json = await response.json();

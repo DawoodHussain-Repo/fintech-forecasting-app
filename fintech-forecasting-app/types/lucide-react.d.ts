@@ -65,4 +65,8 @@ declare module "lucide-react" {
   export const HelpCircle: Icon;
   export const Loader: Icon;
   export const Spinner: Icon;
+  export const ArrowUpRight: Icon;
+  export const ArrowLeft: Icon;
+  export const Moon: Icon;
+  export const Sun: Icon;
 }

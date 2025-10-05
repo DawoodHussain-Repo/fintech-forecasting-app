@@ -59,6 +59,14 @@ async function fetchAlpha(
     );
   }
 
+  // Check for daily rate limit message
+  if (json.Information && String(json.Information).includes("rate limit")) {
+    throw new AlphaVantageError(
+      "API Rate Limit Reached (25 requests/day). Please upgrade your API key or try again tomorrow.",
+      429
+    );
+  }
+
   if (json["Error Message"]) {
     throw new AlphaVantageError(String(json["Error Message"]), 400);
   }

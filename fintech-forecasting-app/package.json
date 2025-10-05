@@ -7,8 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "app": "concurrently \"npm run backend\" \"npm run dev\"",
-    "backend": "cd backend && .\\venv\\Scripts\\activate && python run_server.py",
+    "app": "concurrently --kill-others --names \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run backend\" \"npm run dev\"",
+    "backend": "cd backend && python run_server.py",
     "setup": "npm install && cd backend && pip install -r requirements.txt"
   },
   "dependencies": {

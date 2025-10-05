@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, LineChart, Plus } from "lucide-react";
+import { LineChart, Plus, AlertCircle, X, ChevronRight } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
 import { ChartCard } from "@/components/chart-card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   const { addItem } = useWatchlist();
 
@@ -48,7 +50,22 @@ export default function DashboardPage() {
         setSnapshot(data);
       } catch (err) {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "Unable to fetch data");
+        const errorMsg =
+          err instanceof Error ? err.message : "Unable to fetch data";
+        setError(errorMsg);
+
+        // Show toast for rate limit errors
+        if (
+          errorMsg.includes("rate limit") ||
+          errorMsg.includes("25 requests")
+        ) {
+          setToastMessage(
+            "⚠️ API Rate Limit Reached (25 requests/day). Please upgrade your API key or try again tomorrow."
+          );
+          setShowToast(true);
+          // Auto-hide toast after 10 seconds
+          setTimeout(() => setShowToast(false), 10000);
+        }
       } finally {
         if (!active) return;
         setLoading(false);
@@ -89,6 +106,31 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-12">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-4 right-4 z-50 max-w-md animate-in slide-in-from-top-5">
+          <div className="rounded-lg border border-orange-500/50 bg-orange-500/10 p-4 shadow-lg backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-orange-500">
+                  API Rate Limit Reached
+                </p>
+                <p className="text-sm text-orange-500/90 mt-1">
+                  {toastMessage}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowToast(false)}
+                className="text-orange-500/70 hover:text-orange-500 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -104,7 +146,7 @@ export default function DashboardPage() {
             className="inline-flex items-center gap-2 rounded-full border border-border/60 px-6 py-3 text-sm font-medium text-foreground hover:bg-muted/40"
           >
             Forecast workspace
-            <ArrowUpRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
 
@@ -190,7 +232,7 @@ export default function DashboardPage() {
             <Link href={`/forecast?symbol=${encodeURIComponent(symbol)}`}>
               <Button className="gap-2" variant="secondary">
                 Forecast
-                <ArrowUpRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>

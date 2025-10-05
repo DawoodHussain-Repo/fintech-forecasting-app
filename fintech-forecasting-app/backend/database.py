@@ -160,7 +160,11 @@ class ForecastData:
             metrics=data["metrics"],
             confidence_intervals=data.get("confidence_intervals")
         )
-        instance.created_at = data["created_at"]
+        # Ensure created_at is timezone-aware
+        created_at = data["created_at"]
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        instance.created_at = created_at
         return instance
 
 class ModelPerformance:
