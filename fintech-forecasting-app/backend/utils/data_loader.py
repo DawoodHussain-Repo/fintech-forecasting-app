@@ -9,8 +9,8 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 import threading
 
-from config import Config
-from database import PriceData, store_price_data, get_price_data
+from utils.config import Config
+from utils.database import PriceData, store_price_data, get_price_data
 
 logger = logging.getLogger(__name__)
 

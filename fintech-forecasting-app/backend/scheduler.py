@@ -9,10 +9,10 @@ import schedule
 from datetime import datetime, timezone
 import sys
 
-from config import Config
+from utils.config import Config
 from main import fetch_and_store_data
-from database import get_price_data
-from forecasting import create_model, save_model
+from utils.database import get_price_data
+from ml.models import create_model, save_model
 
 # Configure logging
 logging.basicConfig(
@@ -94,7 +94,7 @@ def health_check_job():
     
     try:
         # Check database connection
-        from database import db_manager
+        from utils.database import db_manager
         db_manager.client.admin.command('ping')
         logger.info("✓ Database connection healthy")
         

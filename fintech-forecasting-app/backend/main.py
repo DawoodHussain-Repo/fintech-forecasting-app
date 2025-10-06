@@ -14,14 +14,14 @@ from flask_cors import CORS
 import requests
 import numpy as np
 
-from config import Config
-from database import (
+from utils.config import Config
+from utils.database import (
     PriceData, ForecastData, ModelPerformance,
     store_price_data, get_price_data, store_forecast, 
     get_latest_forecast, store_model_performance
 )
-from forecasting_simple_noml import create_model, ModelMetrics, create_or_load_model, fit_and_save_model
-from data_loader import load_data_async, ensure_symbol_data
+from ml.models import create_model, ModelMetrics, create_or_load_model, fit_and_save_model
+from utils.data_loader import load_data_async, ensure_symbol_data
 
 # Configure logging
 logging.basicConfig(
@@ -87,7 +87,7 @@ def health_check():
 def cleanup_old_cache():
     """Clean up expired cache entries from database. Called during server shutdown."""
     try:
-        from database import db_manager
+        from utils.database import db_manager
         cache_collection = db_manager.get_collection('api_cache')
         
         # Delete all expired cache entries
@@ -105,7 +105,7 @@ def cleanup_old_cache():
 def clear_cache():
     """Clear API cache (admin endpoint)."""
     try:
-        from database import db_manager
+        from utils.database import db_manager
         cache_collection = db_manager.get_collection('api_cache')
         
         # Optional: clear cache older than specified minutes
@@ -129,7 +129,7 @@ def get_candles(symbol: str):
     """Get historical candle data using yfinance with MongoDB caching."""
     try:
         import yfinance as yf
-        from database import db_manager
+        from utils.database import db_manager
         
         symbol = symbol.upper()
         range_param = request.args.get('range', '1M')
@@ -254,7 +254,7 @@ def generate_forecast(symbol: str):
             price_data = []
             for item in historical_data[-120:]:  # Use last 120 points (5 days)
                 if isinstance(item, dict) and 'close' in item and 'timestamp' in item:
-                    from database import PriceData
+                    from utils.database import PriceData
                     pd_item = PriceData(
                         symbol=symbol.upper(),
                         timestamp=datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')),
@@ -442,7 +442,7 @@ def list_models():
 def get_model_performance(symbol: str):
     """Get model performance metrics for a symbol."""
     try:
-        from database import db_manager
+        from utils.database import db_manager
         
         collection = db_manager.get_collection("model_performance")
         

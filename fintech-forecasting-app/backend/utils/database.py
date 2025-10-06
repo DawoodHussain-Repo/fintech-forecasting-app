@@ -9,7 +9,7 @@ from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.collection import Collection
 from pymongo.database import Database
 import logging
-from config import Config
+from utils.config import Config
 
 logger = logging.getLogger(__name__)
 

@@ -12,9 +12,9 @@ import tempfile
 import os
 
 # Import application modules
-from config import Config
-from database import PriceData, ForecastData, ModelPerformance
-from forecasting import (
+from utils.config import Config
+from utils.database import PriceData, ForecastData, ModelPerformance
+from ml.models import (
     MovingAverageModel, ARIMAModel, LSTMModel, 
     create_model, ForecastModel
 )
