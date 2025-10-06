@@ -18,6 +18,49 @@ import type { MarketSnapshot } from "@/lib/types";
 import CandlestickChart from "@/components/candlestick-chart";
 import { Button } from "@/components/ui/button";
 
+interface BackendForecastPoint {
+  timestamp: string;
+  predicted_price: number;
+  price_range_low: number;
+  price_range_high: number;
+  confidence: string;
+}
+
+interface ShortTermForecast {
+  direction: string;
+  confidence: string;
+  predicted_price: number;
+  price_range: [number, number];
+}
+
+interface TechnicalIndicators {
+  sma_7: number;
+  rsi: number;
+  bb_upper: number;
+  bb_lower: number;
+  volatility_pct: number;
+  momentum_5d_pct: number;
+  support_level: number;
+  resistance_level: number;
+}
+
+interface ForecastData {
+  symbol: string;
+  model_type: string;
+  current_price: number;
+  forecast_1h: ShortTermForecast;
+  forecast_4h: ShortTermForecast;
+  forecast_24h: ShortTermForecast;
+  technical_indicators: TechnicalIndicators;
+  forecast: BackendForecastPoint[];
+  data_points_used: number;
+  data_period: string;
+  created_at: string;
+  cached: boolean;
+  // Legacy fields
+  metrics?: { confidence?: number; mse?: number; mae?: number };
+}
+
 export default function StockPage() {
   const params = useParams();
   const router = useRouter();
@@ -27,13 +70,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRange, setSelectedRange] = useState<RangeOption>("1M");
-  const [forecastData, setForecastData] = useState<{
-    model_type?: string;
-    forecast?: any[];
-    metrics?: { confidence?: number; mse?: number; mae?: number };
-    created_at?: string;
-    cached?: boolean;
-  } | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null);
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastHorizon, setForecastHorizon] = useState(24);
 
@@ -68,11 +105,8 @@ export default function StockPage() {
   const handleGenerateForecast = async (modelType: string) => {
     setForecastLoading(true);
     setForecastData(null);
+    setError(null);
     try {
-      // Get the last 5 days of data for forecasting
-      const allCandles = data?.candles || [];
-      const last5Days = allCandles.slice(-120); // Approximately 5 days of hourly data
-
       const response = await fetch("/api/forecast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -80,8 +114,6 @@ export default function StockPage() {
           symbol,
           model_type: modelType,
           horizon: forecastHorizon,
-          retrain: true,
-          historical_data: last5Days, // Send recent data for training
         }),
       });
 
@@ -91,6 +123,7 @@ export default function StockPage() {
       }
 
       const result = await response.json();
+      console.log("Forecast result:", result);
       setForecastData(result);
     } catch (err) {
       console.error("Forecast error:", err);
@@ -235,7 +268,10 @@ export default function StockPage() {
           {data?.candles && data.candles.length > 0 ? (
             <CandlestickChart
               historicalData={getFilteredCandles()}
-              forecastData={forecastData?.forecast || []}
+              forecastData={(forecastData?.forecast || []).map((p) => ({
+                timestamp: p.timestamp,
+                value: p.predicted_price,
+              }))}
               symbol={symbol}
               loading={loading}
             />
@@ -255,10 +291,10 @@ export default function StockPage() {
           {/* Horizon Selection */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-muted-foreground mb-2">
-              Forecast Horizon (Hours)
+              Forecast Horizon (1-72 Hours)
             </label>
             <div className="flex gap-2 flex-wrap">
-              {[6, 12, 24, 48, 72, 168].map((hours) => (
+              {[6, 12, 24, 48, 72].map((hours) => (
                 <Button
                   key={hours}
                   onClick={() => setForecastHorizon(hours)}
@@ -365,18 +401,147 @@ export default function StockPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">MAE</p>
+                  <p className="text-xs text-muted-foreground">Current Price</p>
                   <p className="font-semibold text-primary">
-                    {forecastData.metrics?.mae?.toFixed(3) || "N/A"}
+                    ${forecastData.current_price?.toFixed(2) || "N/A"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">MSE</p>
+                  <p className="text-xs text-muted-foreground">Data Points</p>
                   <p className="font-semibold text-primary">
-                    {forecastData.metrics?.mse?.toFixed(3) || "N/A"}
+                    {forecastData.data_points_used || "N/A"}
                   </p>
                 </div>
               </div>
+
+              {/* Short-term forecasts */}
+              {forecastData.forecast_1h && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary mb-2">
+                    Short-term Predictions
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* 1h forecast */}
+                    <div className="bg-primary/10 rounded p-3">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        1 Hour
+                      </p>
+                      <p className="text-lg font-bold text-primary">
+                        $
+                        {forecastData.forecast_1h?.predicted_price?.toFixed(
+                          2
+                        ) || "N/A"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Direction:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_1h?.direction || "N/A"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Confidence:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_1h?.confidence || "N/A"}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* 4h forecast */}
+                    <div className="bg-primary/10 rounded p-3">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        4 Hours
+                      </p>
+                      <p className="text-lg font-bold text-primary">
+                        $
+                        {forecastData.forecast_4h?.predicted_price?.toFixed(
+                          2
+                        ) || "N/A"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Direction:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_4h?.direction || "N/A"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Confidence:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_4h?.confidence || "N/A"}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* 24h forecast */}
+                    <div className="bg-primary/10 rounded p-3">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        24 Hours
+                      </p>
+                      <p className="text-lg font-bold text-primary">
+                        $
+                        {forecastData.forecast_24h?.predicted_price?.toFixed(
+                          2
+                        ) || "N/A"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Direction:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_24h?.direction || "N/A"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Confidence:{" "}
+                        <span className="font-semibold capitalize">
+                          {forecastData.forecast_24h?.confidence || "N/A"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Technical Indicators */}
+              {forecastData.technical_indicators && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary mb-2">
+                    Technical Indicators
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="bg-primary/5 rounded p-2">
+                      <p className="text-muted-foreground">SMA-7</p>
+                      <p className="font-semibold text-primary">
+                        $
+                        {forecastData.technical_indicators?.sma_7?.toFixed(2) ||
+                          "N/A"}
+                      </p>
+                    </div>
+                    <div className="bg-primary/5 rounded p-2">
+                      <p className="text-muted-foreground">RSI</p>
+                      <p className="font-semibold text-primary">
+                        {forecastData.technical_indicators?.rsi?.toFixed(2) ||
+                          "N/A"}
+                      </p>
+                    </div>
+                    <div className="bg-primary/5 rounded p-2">
+                      <p className="text-muted-foreground">Volatility</p>
+                      <p className="font-semibold text-primary">
+                        {forecastData.technical_indicators?.volatility_pct?.toFixed(
+                          2
+                        ) || "N/A"}
+                        %
+                      </p>
+                    </div>
+                    <div className="bg-primary/5 rounded p-2">
+                      <p className="text-muted-foreground">Momentum (5d)</p>
+                      <p className="font-semibold text-primary">
+                        {forecastData.technical_indicators?.momentum_5d_pct?.toFixed(
+                          2
+                        ) || "N/A"}
+                        %
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Forecast Preview */}
               {forecastData.forecast && forecastData.forecast.length > 0 && (
@@ -387,13 +552,13 @@ export default function StockPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {forecastData.forecast
                       .slice(0, 4)
-                      .map((point: any, index: number) => (
+                      .map((point: BackendForecastPoint, index: number) => (
                         <div key={index} className="bg-primary/10 rounded p-2">
                           <p className="text-xs text-muted-foreground">
                             +{index + 1}h
                           </p>
                           <p className="font-semibold text-primary">
-                            ${point.value?.toFixed(2) || "N/A"}
+                            ${point.predicted_price?.toFixed(2) || "N/A"}
                           </p>
                         </div>
                       ))}

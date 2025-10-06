@@ -16,6 +16,12 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import warnings
 warnings.filterwarnings('ignore')
 
+def softmax(x):
+    """Compute softmax values for array x"""
+    x = np.array(x)
+    exp_x = np.exp(x - np.max(x))  # Subtract max for numerical stability
+    return exp_x / np.sum(exp_x)
+
 # Create models directory if it doesn't exist
 MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
 if not os.path.exists(MODELS_DIR):
@@ -513,7 +519,7 @@ class SimpleTransformer:
             target = scaled_data[i]
             
             # Calculate self-attention weights (simplified)
-            attention_weights = np.softmax(sequence)  # Simple attention
+            attention_weights = softmax(sequence)  # Simple attention
             attended_sequence = sequence * attention_weights
             
             patterns.append(attended_sequence)
@@ -543,7 +549,7 @@ class SimpleTransformer:
         
         for _ in range(steps):
             # Apply attention to current sequence
-            attention_weights = np.softmax(current_sequence)
+            attention_weights = softmax(current_sequence)
             attended_current = current_sequence * attention_weights
             
             # Find best matching attention pattern

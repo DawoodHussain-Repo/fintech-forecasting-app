@@ -94,7 +94,8 @@ export default function CandlestickChart({
             parsed: { y: number };
           }) {
             const datasetLabel = context.dataset.label || "";
-            const value = context.parsed.y;
+            const value = context.parsed?.y;
+            if (value === undefined || value === null) return datasetLabel;
             return `${datasetLabel}: $${value.toFixed(2)}`;
           },
         },
@@ -136,10 +137,12 @@ export default function CandlestickChart({
       // Candlestick data (using line chart as approximation)
       {
         label: "Close Price",
-        data: historicalData.map((item) => ({
-          x: new Date(item.timestamp),
-          y: item.close,
-        })),
+        data: historicalData
+          .filter((item) => item?.close !== undefined && item?.timestamp)
+          .map((item) => ({
+            x: new Date(item.timestamp),
+            y: item.close,
+          })),
         borderColor: "#3b82f6",
         backgroundColor: "rgba(59, 130, 246, 0.1)",
         fill: false,
@@ -151,10 +154,12 @@ export default function CandlestickChart({
       // High-Low range
       {
         label: "High",
-        data: historicalData.map((item) => ({
-          x: new Date(item.timestamp),
-          y: item.high,
-        })),
+        data: historicalData
+          .filter((item) => item?.high !== undefined && item?.timestamp)
+          .map((item) => ({
+            x: new Date(item.timestamp),
+            y: item.high,
+          })),
         borderColor: "rgba(34, 197, 94, 0.3)",
         backgroundColor: "transparent",
         fill: false,
@@ -164,10 +169,12 @@ export default function CandlestickChart({
       },
       {
         label: "Low",
-        data: historicalData.map((item) => ({
-          x: new Date(item.timestamp),
-          y: item.low,
-        })),
+        data: historicalData
+          .filter((item) => item?.low !== undefined && item?.timestamp)
+          .map((item) => ({
+            x: new Date(item.timestamp),
+            y: item.low,
+          })),
         borderColor: "rgba(239, 68, 68, 0.3)",
         backgroundColor: "transparent",
         fill: false,
@@ -180,10 +187,12 @@ export default function CandlestickChart({
         ? [
             {
               label: "Forecast",
-              data: forecastData.map((item) => ({
-                x: new Date(item.timestamp),
-                y: item.value,
-              })),
+              data: forecastData
+                .filter((item) => item?.value !== undefined && item?.timestamp)
+                .map((item) => ({
+                  x: new Date(item.timestamp),
+                  y: item.value,
+                })),
               borderColor: "#f59e0b",
               backgroundColor: "rgba(245, 158, 11, 0.1)",
               fill: false,
@@ -246,13 +255,15 @@ export default function CandlestickChart({
         <div className="bg-gray-700 rounded p-3">
           <div className="text-gray-400">Latest Price</div>
           <div className="text-blue-400 font-semibold">
-            ${historicalData[historicalData.length - 1]?.close.toFixed(2)}
+            $
+            {historicalData[historicalData.length - 1]?.close?.toFixed(2) ||
+              "N/A"}
           </div>
         </div>
         <div className="bg-gray-700 rounded p-3">
           <div className="text-gray-400">Next Forecast</div>
           <div className="text-orange-400 font-semibold">
-            ${forecastData[0]?.value.toFixed(2) || "N/A"}
+            ${forecastData[0]?.value?.toFixed(2) || "N/A"}
           </div>
         </div>
       </div>

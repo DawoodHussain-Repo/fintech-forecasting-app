@@ -29,10 +29,7 @@ def cleanup_handler(signum, frame):
     """Handle cleanup on shutdown."""
     logger.info("Shutting down server...")
     try:
-        from main import cleanup_old_cache
-        logger.info("Running cache cleanup...")
-        cleanup_old_cache()
-        logger.info("Cleanup completed successfully")
+        logger.info("Server shutdown complete")
     except Exception as e:
         logger.error(f"Error during cleanup: {e}")
     sys.exit(0)

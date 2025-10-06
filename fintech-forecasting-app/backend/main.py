@@ -232,173 +232,255 @@ def get_symbol_data(symbol: str):
 
 @app.route('/api/forecast/<symbol>', methods=['POST'])
 def generate_forecast(symbol: str):
-    """Generate forecast for a symbol using specified model."""
+    """Generate SHORT-TERM forecast using recent 5-7 days of data with technical indicators."""
     try:
         data = request.get_json()
-        model_type = data.get('model_type', 'lstm').lower()
+        model_type = data.get('model_type', 'moving_average').lower()
         horizon = data.get('horizon', 24)  # hours
-        retrain = data.get('retrain', False)
-        historical_data = data.get('historical_data', None)  # Optional historical data from frontend
+        
+        logger.info(f"SHORT-TERM Forecast: {symbol} | Model: {model_type} | Horizon: {horizon}h")
         
         # Validate inputs
         if model_type not in ['moving_average', 'arima', 'lstm', 'gru', 'transformer']:
             return jsonify({"error": "Invalid model type"}), 400
         
-        if not 1 <= horizon <= 168:  # 1 hour to 1 week
-            return jsonify({"error": "Horizon must be between 1 and 168 hours"}), 400
+        if not 1 <= horizon <= 72:  # Max 72 hours (3 days) for short-term
+            return jsonify({"error": "Horizon must be between 1 and 72 hours"}), 400
         
-        # Use provided historical data or fetch from database
-        if historical_data and isinstance(historical_data, list) and len(historical_data) > 0:
-            logger.info(f"Using provided historical data: {len(historical_data)} points")
-            # Convert frontend data format to PriceData format
-            price_data = []
-            for item in historical_data[-120:]:  # Use last 120 points (5 days)
-                if isinstance(item, dict) and 'close' in item and 'timestamp' in item:
-                    from utils.database import PriceData
-                    pd_item = PriceData(
-                        symbol=symbol.upper(),
-                        timestamp=datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00')),
-                        open=item.get('open', item['close']),
-                        high=item.get('high', item['close']),
-                        low=item.get('low', item['close']),
-                        close=item['close'],
-                        volume=item.get('volume', 0)
-                    )
-                    price_data.append(pd_item)
-        else:
-            # Get historical data from database
-            price_data = get_price_data(symbol.upper(), 2000)
+        # Step 1: Fetch RECENT 7 days of HOURLY data from yfinance
+        import yfinance as yf
+        
+        symbol_upper = symbol.upper()
+        logger.info(f"Fetching RECENT 7 days of HOURLY data for {symbol_upper}")
+        
+        try:
+            ticker = yf.Ticker(symbol_upper)
+            # Get 7 days of HOURLY data (most recent short-term data)
+            hist = ticker.history(period="7d", interval="1h")
             
-            if len(price_data) < 10:
-                # Try to fetch data from API
-                logger.info(f"Insufficient data for {symbol}, attempting to fetch...")
-                if ensure_symbol_data(symbol.upper()):
-                    price_data = get_price_data(symbol.upper(), 2000)
-                
-                # If still no data, generate mock data
-                if len(price_data) < 10:
-                    logger.info(f"Generating mock data for {symbol}")
-                    mock_data = generate_mock_price_data(symbol.upper(), 100)
-                    price_data = mock_data
-        
-        # Check for existing forecast
-        if not retrain:
-            existing_forecast = get_latest_forecast(symbol.upper(), model_type)
-            if existing_forecast and \
-               (datetime.now(timezone.utc) - existing_forecast.created_at).total_seconds() < 3600:
-                # Return existing forecast if less than 1 hour old
+            if hist.empty or len(hist) < 24:
+                logger.warning(f"Insufficient recent data for {symbol_upper}, trying 1-minute data")
+                # Fallback to 5 days of hourly data
+                hist = ticker.history(period="5d", interval="1h")
+            
+            if hist.empty or len(hist) < 20:
+                logger.error(f"No recent data available for {symbol_upper}")
                 return jsonify({
-                    "symbol": symbol.upper(),
-                    "model_type": model_type,
-                    "forecast": existing_forecast.predictions,
-                    "metrics": existing_forecast.metrics,
-                    "confidence_intervals": existing_forecast.confidence_intervals,
-                    "created_at": existing_forecast.created_at.isoformat(),
-                    "cached": True
-                })
+                    "error": "Insufficient recent data",
+                    "details": "Need at least 20 hours of recent price data"
+                }), 400
+            
+            # Extract OHLCV data
+            close_prices = hist['Close'].values
+            high_prices = hist['High'].values
+            low_prices = hist['Low'].values
+            volume = hist['Volume'].values
+            
+            logger.info(f"Fetched {len(close_prices)} hours of recent data for {symbol_upper}")
+            logger.info(f"Data range: {hist.index[0]} to {hist.index[-1]}")
+            logger.info(f"Current price: ${close_prices[-1]:.2f}")
+            
+        except Exception as e:
+            logger.error(f"Error fetching data for {symbol_upper}: {e}")
+            return jsonify({
+                "error": "Failed to fetch market data",
+                "details": str(e)
+            }), 500
         
-        # Create or load model with persistence
-        logger.info(f"Creating/loading {model_type} model for {symbol}")
-        model = create_or_load_model(symbol.upper(), model_type, force_retrain=retrain)
+        # Step 2: Calculate SHORT-TERM Technical Indicators
+        logger.info("Calculating short-term technical indicators...")
         
-        # Prepare price data for training
-        price_values = np.array([pd.close for pd in price_data])
+        # 7-period Simple Moving Average
+        if len(close_prices) >= 7:
+            sma_7 = np.mean(close_prices[-7:])
+        else:
+            sma_7 = close_prices[-1]
         
-        # Fit model (will load from cache if available and fresh)
-        logger.info(f"Training model on {len(price_values)} data points")
-        model = fit_and_save_model(model, price_values, symbol.upper(), model_type)
+        # RSI (14 periods)
+        def calculate_rsi(prices, period=14):
+            if len(prices) < period + 1:
+                return 50  # Neutral
+            deltas = np.diff(prices)
+            gains = np.where(deltas > 0, deltas, 0)
+            losses = np.where(deltas < 0, -deltas, 0)
+            avg_gain = np.mean(gains[-period:])
+            avg_loss = np.mean(losses[-period:])
+            if avg_loss == 0:
+                return 100
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+            return rsi
         
-        # Generate predictions
-        logger.info(f"Generating {horizon} step forecast")
-        predictions = model.predict(price_values, steps=horizon)
+        rsi = calculate_rsi(close_prices)
         
-        # Convert to proper format if numpy array
+        # Bollinger Bands (20 periods, 2 std)
+        if len(close_prices) >= 20:
+            bb_period = 20
+            bb_std = 2
+            sma_20 = np.mean(close_prices[-bb_period:])
+            std_20 = np.std(close_prices[-bb_period:])
+            bb_upper = sma_20 + (bb_std * std_20)
+            bb_lower = sma_20 - (bb_std * std_20)
+        else:
+            bb_upper = close_prices[-1] * 1.05
+            bb_lower = close_prices[-1] * 0.95
+        
+        # Recent volatility (last 24 hours)
+        if len(close_prices) >= 24:
+            recent_volatility = np.std(close_prices[-24:]) / np.mean(close_prices[-24:]) * 100
+        else:
+            recent_volatility = np.std(close_prices) / np.mean(close_prices) * 100
+        
+        # Momentum (recent trend)
+        if len(close_prices) >= 5:
+            momentum = (close_prices[-1] - close_prices[-5]) / close_prices[-5] * 100
+        else:
+            momentum = 0
+        
+        # Support/Resistance levels (recent highs/lows)
+        recent_high = np.max(high_prices[-24:]) if len(high_prices) >= 24 else np.max(high_prices)
+        recent_low = np.min(low_prices[-24:]) if len(low_prices) >= 24 else np.min(low_prices)
+        
+        technical_indicators = {
+            "sma_7": float(sma_7),
+            "rsi": float(rsi),
+            "bb_upper": float(bb_upper),
+            "bb_lower": float(bb_lower),
+            "volatility_pct": float(recent_volatility),
+            "momentum_5d_pct": float(momentum),
+            "support_level": float(recent_low),
+            "resistance_level": float(recent_high)
+        }
+        
+        logger.info(f"Indicators: RSI={rsi:.1f}, Volatility={recent_volatility:.2f}%, Momentum={momentum:.2f}%")
+        
+        # Step 3: Create and train model on RECENT data only
+        logger.info(f"Training {model_type} model on {len(close_prices)} hours of RECENT data")
+        model = create_model(model_type)
+        
+        if model is None:
+            return jsonify({"error": f"Failed to create {model_type} model"}), 500
+        
+        # Use ALL recent data for training (no old data)
+        model.fit(close_prices)
+        
+        # Step 4: Generate predictions
+        logger.info(f"Generating {horizon}-hour forecast with confidence intervals")
+        predictions = model.predict(close_prices, steps=horizon)
+        
+        # Ensure predictions are in the right format
         if hasattr(predictions, 'flatten'):
             predictions = predictions.flatten()
+        predictions = [float(p) for p in predictions[:horizon]]
         
-        # Ensure predictions is a list of numbers
-        predictions = [float(p) for p in predictions]
+        # Step 5: Determine price direction and confidence
+        current_price = float(close_prices[-1])
         
-        # Generate confidence intervals (simple estimation)
-        confidence_intervals = np.column_stack([
-            np.array(predictions) * 0.95,  # Lower bound
-            np.array(predictions) * 1.05   # Upper bound
-        ])
-        
-        # Calculate training metrics
-        training_metrics = {"model_type": model_type, "training_samples": len(price_values)}
-        
-        # Create forecast timestamps
-        last_timestamp = max(pd.timestamp for pd in price_data)
-        forecast_timestamps = [
-            (last_timestamp + timedelta(hours=i+1)).isoformat()
-            for i in range(horizon)
-        ]
-        
-        # Format predictions
-        forecast_points = [
-            {
-                "timestamp": ts,
-                "value": float(pred)
-            }
-            for ts, pred in zip(forecast_timestamps, predictions)
-        ]
-        
-        # Calculate evaluation metrics on recent data
-        evaluation_metrics = {}
-        if len(price_data) > horizon * 2:
-            # Use portion of data for validation
-            split_point = len(price_data) - horizon
-            train_data = price_values[:split_point]
-            test_data = price_values[split_point:]
+        def get_direction_and_confidence(pred_price, current, volatility):
+            """Determine direction and confidence based on prediction and volatility"""
+            change_pct = ((pred_price - current) / current) * 100
             
-            # Create validation model
-            val_model = create_model(model_type)
-            val_model.fit(train_data)
-            val_predictions = val_model.predict(train_data, steps=len(test_data))
+            # Direction
+            if change_pct > 0.5:
+                direction = "up"
+            elif change_pct < -0.5:
+                direction = "down"
+            else:
+                direction = "sideways"
             
-            # Calculate metrics
-            evaluation_metrics = ModelMetrics.calculate_metrics(test_data, val_predictions)
+            # Confidence (based on volatility and change magnitude)
+            if volatility < 1.0:  # Low volatility
+                if abs(change_pct) > 2:
+                    confidence = "high"
+                elif abs(change_pct) > 0.5:
+                    confidence = "medium"
+                else:
+                    confidence = "low"
+            elif volatility < 3.0:  # Medium volatility
+                if abs(change_pct) > 3:
+                    confidence = "medium"
+                else:
+                    confidence = "low"
+            else:  # High volatility
+                confidence = "low"
+            
+            return direction, confidence
         
-        # Combine training and evaluation metrics
-        all_metrics = {**training_metrics, **evaluation_metrics}
+        # Predictions for different horizons
+        pred_1h = predictions[0] if len(predictions) >= 1 else current_price
+        pred_4h = predictions[3] if len(predictions) >= 4 else predictions[-1]
+        pred_24h = predictions[23] if len(predictions) >= 24 else predictions[-1]
         
-        # Store forecast in database
-        forecast_data = ForecastData(
-            symbol=symbol.upper(),
-            model_type=model_type,
-            forecast_horizon=horizon,
-            predictions=forecast_points,
-            metrics=all_metrics,
-            confidence_intervals=confidence_intervals.tolist() if confidence_intervals is not None else None
-        )
+        dir_1h, conf_1h = get_direction_and_confidence(pred_1h, current_price, recent_volatility)
+        dir_4h, conf_4h = get_direction_and_confidence(pred_4h, current_price, recent_volatility)
+        dir_24h, conf_24h = get_direction_and_confidence(pred_24h, current_price, recent_volatility)
         
-        store_forecast(forecast_data)
+        # Step 6: Generate price ranges (using volatility)
+        volatility_multiplier = recent_volatility / 100
         
-        # Store model performance
-        performance = ModelPerformance(
-            symbol=symbol.upper(),
-            model_type=model_type,
-            metrics=evaluation_metrics,
-            evaluation_period=f"{horizon}h",
-            data_points=len(price_data)
-        )
-        store_model_performance(performance)
+        forecast_points = []
+        for i, pred in enumerate(predictions):
+            # Dynamic confidence interval based on time horizon and volatility
+            time_factor = np.sqrt(i + 1)  # Uncertainty increases with time
+            range_width = pred * volatility_multiplier * time_factor
+            
+            forecast_points.append({
+                "timestamp": (datetime.now(timezone.utc) + timedelta(hours=i+1)).isoformat(),
+                "predicted_price": float(pred),
+                "price_range_low": float(pred - range_width),
+                "price_range_high": float(pred + range_width),
+                "confidence": "high" if i < 4 else ("medium" if i < 12 else "low")
+            })
         
-        return jsonify({
-            "symbol": symbol.upper(),
+        # Step 7: Prepare response
+        response = {
+            "symbol": symbol_upper,
             "model_type": model_type,
+            "current_price": current_price,
+            
+            # Short-term forecasts
+            "forecast_1h": {
+                "direction": dir_1h,
+                "confidence": conf_1h,
+                "predicted_price": float(pred_1h),
+                "price_range": [float(pred_1h * 0.98), float(pred_1h * 1.02)]
+            },
+            "forecast_4h": {
+                "direction": dir_4h,
+                "confidence": conf_4h,
+                "predicted_price": float(pred_4h),
+                "price_range": [float(pred_4h * 0.96), float(pred_4h * 1.04)]
+            },
+            "forecast_24h": {
+                "direction": dir_24h,
+                "confidence": conf_24h,
+                "predicted_price": float(pred_24h),
+                "price_range": [float(pred_24h * 0.93), float(pred_24h * 1.07)]
+            },
+            
+            # Technical indicators
+            "technical_indicators": technical_indicators,
+            
+            # Full forecast timeline
             "forecast": forecast_points,
-            "metrics": all_metrics,
-            "confidence_intervals": confidence_intervals.tolist() if confidence_intervals is not None else None,
-            "created_at": forecast_data.created_at.isoformat(),
+            
+            # Metadata
+            "data_points_used": len(close_prices),
+            "data_period": "7 days hourly",
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "cached": False
-        })
+        }
+        
+        logger.info(f"✓ Forecast complete: 1h={dir_1h}({conf_1h}), 4h={dir_4h}({conf_4h}), 24h={dir_24h}({conf_24h})")
+        return jsonify(response)
         
     except Exception as e:
-        logger.error(f"Error generating forecast for {symbol}: {e}")
+        logger.error(f"Error generating forecast: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": "Failed to generate forecast",
+            "details": str(e)
+        }), 500
 
 @app.route('/api/models', methods=['GET'])
 def list_models():
