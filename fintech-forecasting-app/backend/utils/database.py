@@ -343,8 +343,13 @@ def get_trained_model(symbol: str, model_type: str, max_age_hours: int = 24) -> 
         if not doc:
             return None
         
-        # Check age
-        age = (datetime.now(timezone.utc) - doc["created_at"]).total_seconds() / 3600
+        # Check age - ensure both datetimes are timezone-aware
+        created_at = doc["created_at"]
+        if created_at.tzinfo is None:
+            # Make timezone-aware if needed
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        
+        age = (datetime.now(timezone.utc) - created_at).total_seconds() / 3600
         if age > max_age_hours:
             logger.info(f"Trained model for {symbol}/{model_type} is too old ({age:.1f}h)")
             return None
@@ -399,8 +404,12 @@ def get_stock_data_cache(symbol: str, data_type: str = "1year_hourly",
         if not doc:
             return None
         
-        # Check age
-        age = (datetime.now(timezone.utc) - doc["created_at"]).total_seconds() / 3600
+        # Check age - ensure both datetimes are timezone-aware
+        created_at = doc["created_at"]
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        
+        age = (datetime.now(timezone.utc) - created_at).total_seconds() / 3600
         if age > max_age_hours:
             logger.info(f"Cached data for {symbol} is too old ({age:.1f}h)")
             return None

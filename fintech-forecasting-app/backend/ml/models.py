@@ -107,10 +107,10 @@ class PersistentModel:
             
             with open(model_path, 'wb') as f:
                 pickle.dump(model_data, f)
-            print(f"✓ Model saved to disk: {model_path}")
+            print(f"[OK] Model saved to disk: {model_path}")
             saved_to_disk = True
         except Exception as e:
-            print(f"✗ Error saving model to disk: {e}")
+            print(f"[ERROR] Error saving model to disk: {e}")
             import traceback
             traceback.print_exc()
         
@@ -118,9 +118,9 @@ class PersistentModel:
         try:
             if self.save_model_to_mongodb(symbol, model_type):
                 saved_to_mongodb = True
-                print(f"✓ Model also saved to MongoDB for redundancy")
+                print(f"[OK] Model also saved to MongoDB for redundancy")
         except Exception as e:
-            print(f"⚠ MongoDB save failed (non-critical): {e}")
+            print(f"[WARN] MongoDB save failed (non-critical): {e}")
         
         return saved_to_disk  # Return True if at least disk save succeeded
     

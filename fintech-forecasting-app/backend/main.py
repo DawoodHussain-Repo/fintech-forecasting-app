@@ -417,9 +417,9 @@ def generate_forecast(symbol: str):
             logger.info(f"Saving trained {model_type} model for {symbol_upper} to backend/models/")
             save_success = model.save_model(symbol_upper, model_type)
             if save_success:
-                logger.info(f"✓ Model successfully saved to backend/models/{symbol_upper}_{model_type}_{datetime.now().strftime('%Y%m%d')}.pkl")
+                logger.info(f"[OK] Model successfully saved to backend/models/{symbol_upper}_{model_type}_{datetime.now().strftime('%Y%m%d')}.pkl")
             else:
-                logger.warning(f"⚠ Failed to save model to disk (will need to retrain next time)")
+                logger.warning(f"[WARN] Failed to save model to disk (will need to retrain next time)")
         else:
             logger.info(f"Using CACHED {model_type} model for {symbol_upper} (trained within last 24 hours)")
         
@@ -530,7 +530,7 @@ def generate_forecast(symbol: str):
             "cached": False
         }
         
-        logger.info(f"✓ Forecast complete: 1h={dir_1h}({conf_1h}), 4h={dir_4h}({conf_4h}), 24h={dir_24h}({conf_24h})")
+        logger.info(f"[OK] Forecast complete: 1h={dir_1h}({conf_1h}), 4h={dir_4h}({conf_4h}), 24h={dir_24h}({conf_24h})")
         return jsonify(response)
         
     except Exception as e:
