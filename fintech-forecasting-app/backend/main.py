@@ -234,6 +234,11 @@ def get_symbol_data(symbol: str):
 def generate_forecast(symbol: str):
     """Generate SHORT-TERM forecast using recent 5-7 days of data with technical indicators."""
     try:
+        from utils.database import (
+            is_first_api_call, get_stock_data_cache, store_stock_data_cache,
+            get_trained_model, store_trained_model
+        )
+        
         data = request.get_json()
         model_type = data.get('model_type', 'moving_average').lower()
         horizon = data.get('horizon', 24)  # hours
@@ -247,45 +252,75 @@ def generate_forecast(symbol: str):
         if not 1 <= horizon <= 72:  # Max 72 hours (3 days) for short-term
             return jsonify({"error": "Horizon must be between 1 and 72 hours"}), 400
         
-        # Step 1: Fetch RECENT 7 days of HOURLY data from yfinance
+        # Step 1: Fetch RECENT 7 days of HOURLY data (use cache after first call)
         import yfinance as yf
         
         symbol_upper = symbol.upper()
-        logger.info(f"Fetching RECENT 7 days of HOURLY data for {symbol_upper}")
+        is_first_call = is_first_api_call(symbol_upper)
         
-        try:
-            ticker = yf.Ticker(symbol_upper)
-            # Get 7 days of HOURLY data (most recent short-term data)
-            hist = ticker.history(period="7d", interval="1h")
+        # Try to get cached data (skip if first call)
+        cached_data = None
+        if not is_first_call:
+            cached_data = get_stock_data_cache(symbol_upper, "7d_hourly", max_age_hours=6)
+        
+        if cached_data:
+            logger.info(f"Using cached data for {symbol_upper} ({len(cached_data)} points)")
+            # Reconstruct data from cache
+            close_prices = np.array([d['close'] for d in cached_data])
+            high_prices = np.array([d['high'] for d in cached_data])
+            low_prices = np.array([d['low'] for d in cached_data])
+            volume = np.array([d['volume'] for d in cached_data])
+        else:
+            # Fetch from API (first call or cache expired)
+            logger.info(f"{'[FIRST CALL] ' if is_first_call else ''}Fetching RECENT 7 days of HOURLY data for {symbol_upper}")
             
-            if hist.empty or len(hist) < 24:
-                logger.warning(f"Insufficient recent data for {symbol_upper}, trying 1-minute data")
-                # Fallback to 5 days of hourly data
-                hist = ticker.history(period="5d", interval="1h")
-            
-            if hist.empty or len(hist) < 20:
-                logger.error(f"No recent data available for {symbol_upper}")
+            try:
+                ticker = yf.Ticker(symbol_upper)
+                # Get 7 days of HOURLY data (most recent short-term data)
+                hist = ticker.history(period="7d", interval="1h")
+                
+                if hist.empty or len(hist) < 24:
+                    logger.warning(f"Insufficient recent data for {symbol_upper}, trying fallback")
+                    # Fallback to 5 days of hourly data
+                    hist = ticker.history(period="5d", interval="1h")
+                
+                if hist.empty or len(hist) < 20:
+                    logger.error(f"No recent data available for {symbol_upper}")
+                    return jsonify({
+                        "error": "Insufficient recent data",
+                        "details": "Need at least 20 hours of recent price data"
+                    }), 400
+                
+                # Extract OHLCV data
+                close_prices = hist['Close'].values
+                high_prices = hist['High'].values
+                low_prices = hist['Low'].values
+                volume = hist['Volume'].values
+                
+                logger.info(f"Fetched {len(close_prices)} hours of recent data for {symbol_upper}")
+                logger.info(f"Data range: {hist.index[0]} to {hist.index[-1]}")
+                logger.info(f"Current price: ${close_prices[-1]:.2f}")
+                
+                # Cache the data for subsequent requests
+                cache_data = [
+                    {
+                        'timestamp': str(hist.index[i]),
+                        'close': float(close_prices[i]),
+                        'high': float(high_prices[i]),
+                        'low': float(low_prices[i]),
+                        'volume': float(volume[i])
+                    }
+                    for i in range(len(close_prices))
+                ]
+                store_stock_data_cache(symbol_upper, cache_data, "7d_hourly")
+                logger.info(f"Cached {len(cache_data)} data points for {symbol_upper}")
+                
+            except Exception as e:
+                logger.error(f"Error fetching data for {symbol_upper}: {e}")
                 return jsonify({
-                    "error": "Insufficient recent data",
-                    "details": "Need at least 20 hours of recent price data"
-                }), 400
-            
-            # Extract OHLCV data
-            close_prices = hist['Close'].values
-            high_prices = hist['High'].values
-            low_prices = hist['Low'].values
-            volume = hist['Volume'].values
-            
-            logger.info(f"Fetched {len(close_prices)} hours of recent data for {symbol_upper}")
-            logger.info(f"Data range: {hist.index[0]} to {hist.index[-1]}")
-            logger.info(f"Current price: ${close_prices[-1]:.2f}")
-            
-        except Exception as e:
-            logger.error(f"Error fetching data for {symbol_upper}: {e}")
-            return jsonify({
-                "error": "Failed to fetch market data",
-                "details": str(e)
-            }), 500
+                    "error": "Failed to fetch market data",
+                    "details": str(e)
+                }), 500
         
         # Step 2: Calculate SHORT-TERM Technical Indicators
         logger.info("Calculating short-term technical indicators...")
@@ -354,15 +389,39 @@ def generate_forecast(symbol: str):
         
         logger.info(f"Indicators: RSI={rsi:.1f}, Volatility={recent_volatility:.2f}%, Momentum={momentum:.2f}%")
         
-        # Step 3: Create and train model on RECENT data only
-        logger.info(f"Training {model_type} model on {len(close_prices)} hours of RECENT data")
-        model = create_model(model_type)
+        # Step 3: Load existing model or create and train new one
+        logger.info(f"Checking for existing {model_type} model for {symbol_upper}")
         
-        if model is None:
+        # Try to load existing model from backend/models directory
+        from ml.models import PersistentModel
+        temp_model = create_model(model_type)
+        
+        if temp_model is None:
             return jsonify({"error": f"Failed to create {model_type} model"}), 500
         
-        # Use ALL recent data for training (no old data)
-        model.fit(close_prices)
+        # Check if we have a fresh model (within 24 hours)
+        model = None
+        if temp_model.is_model_fresh(symbol_upper, model_type, max_age_hours=24):
+            logger.info(f"Fresh model found for {symbol_upper}/{model_type}, loading from disk...")
+            model = temp_model.load_model(symbol_upper, model_type, max_age_hours=24)
+        
+        if model is None:
+            # No fresh model found, train a new one
+            logger.info(f"Training NEW {model_type} model for {symbol_upper} on {len(close_prices)} hours of RECENT data")
+            model = create_model(model_type)
+            
+            # Train on recent data (fit returns self)
+            model = model.fit(close_prices)
+            
+            # Save the model to backend/models directory for future use
+            logger.info(f"Saving trained {model_type} model for {symbol_upper} to backend/models/")
+            save_success = model.save_model(symbol_upper, model_type)
+            if save_success:
+                logger.info(f"✓ Model successfully saved to backend/models/{symbol_upper}_{model_type}_{datetime.now().strftime('%Y%m%d')}.pkl")
+            else:
+                logger.warning(f"⚠ Failed to save model to disk (will need to retrain next time)")
+        else:
+            logger.info(f"Using CACHED {model_type} model for {symbol_upper} (trained within last 24 hours)")
         
         # Step 4: Generate predictions
         logger.info(f"Generating {horizon}-hour forecast with confidence intervals")

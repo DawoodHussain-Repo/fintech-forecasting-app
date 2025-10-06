@@ -76,6 +76,20 @@ class DatabaseManager:
                 expireAfterSeconds=300  # 5 minutes cache
             )
             
+            # Trained models indexes
+            self.db.trained_models.create_index([
+                ("symbol", ASCENDING),
+                ("model_type", ASCENDING),
+                ("created_at", DESCENDING)
+            ])
+            
+            # Stock data cache indexes (1 year data)
+            self.db.stock_data_cache.create_index([
+                ("symbol", ASCENDING),
+                ("data_type", ASCENDING),
+                ("created_at", DESCENDING)
+            ])
+            
             logger.info("Database indexes created successfully")
             
         except Exception as e:
@@ -282,3 +296,135 @@ def store_model_performance(performance: ModelPerformance) -> bool:
     except Exception as e:
         logger.error(f"Failed to store model performance: {e}")
         return False
+
+def store_trained_model(symbol: str, model_type: str, model_data: bytes, 
+                        metadata: Dict[str, Any] = None) -> bool:
+    """Store a trained model in MongoDB using GridFS or binary storage."""
+    try:
+        import pickle
+        from bson import Binary
+        
+        collection = db_manager.get_collection("trained_models")
+        
+        # Delete old models for same symbol/model_type (keep only latest)
+        collection.delete_many({
+            "symbol": symbol,
+            "model_type": model_type
+        })
+        
+        # Store new model
+        doc = {
+            "symbol": symbol,
+            "model_type": model_type,
+            "model_data": Binary(model_data),
+            "metadata": metadata or {},
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        collection.insert_one(doc)
+        logger.info(f"Stored trained {model_type} model for {symbol}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to store trained model: {e}")
+        return False
+
+def get_trained_model(symbol: str, model_type: str, max_age_hours: int = 24) -> Optional[bytes]:
+    """Retrieve a trained model from MongoDB if it exists and is fresh."""
+    try:
+        collection = db_manager.get_collection("trained_models")
+        
+        # Find most recent model
+        doc = collection.find_one(
+            {"symbol": symbol, "model_type": model_type},
+            sort=[("created_at", DESCENDING)]
+        )
+        
+        if not doc:
+            return None
+        
+        # Check age
+        age = (datetime.now(timezone.utc) - doc["created_at"]).total_seconds() / 3600
+        if age > max_age_hours:
+            logger.info(f"Trained model for {symbol}/{model_type} is too old ({age:.1f}h)")
+            return None
+        
+        logger.info(f"Retrieved trained {model_type} model for {symbol} (age: {age:.1f}h)")
+        return bytes(doc["model_data"])
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve trained model: {e}")
+        return None
+
+def store_stock_data_cache(symbol: str, data: List[Dict[str, Any]], 
+                           data_type: str = "1year_hourly") -> bool:
+    """Store fetched stock data in MongoDB for subsequent requests."""
+    try:
+        collection = db_manager.get_collection("stock_data_cache")
+        
+        # Delete old cache for same symbol/type
+        collection.delete_many({
+            "symbol": symbol,
+            "data_type": data_type
+        })
+        
+        # Store new cache
+        doc = {
+            "symbol": symbol,
+            "data_type": data_type,
+            "data": data,
+            "created_at": datetime.now(timezone.utc),
+            "count": len(data)
+        }
+        
+        collection.insert_one(doc)
+        logger.info(f"Cached {len(data)} data points for {symbol} ({data_type})")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to cache stock data: {e}")
+        return False
+
+def get_stock_data_cache(symbol: str, data_type: str = "1year_hourly", 
+                         max_age_hours: int = 24) -> Optional[List[Dict[str, Any]]]:
+    """Retrieve cached stock data from MongoDB if fresh."""
+    try:
+        collection = db_manager.get_collection("stock_data_cache")
+        
+        doc = collection.find_one(
+            {"symbol": symbol, "data_type": data_type},
+            sort=[("created_at", DESCENDING)]
+        )
+        
+        if not doc:
+            return None
+        
+        # Check age
+        age = (datetime.now(timezone.utc) - doc["created_at"]).total_seconds() / 3600
+        if age > max_age_hours:
+            logger.info(f"Cached data for {symbol} is too old ({age:.1f}h)")
+            return None
+        
+        logger.info(f"Retrieved {doc['count']} cached data points for {symbol} (age: {age:.1f}h)")
+        return doc["data"]
+        
+    except Exception as e:
+        logger.error(f"Failed to retrieve cached stock data: {e}")
+        return None
+
+# Track first API call per session
+_first_api_calls = set()
+
+def is_first_api_call(symbol: str) -> bool:
+    """Check if this is the first API call for a symbol in this session."""
+    global _first_api_calls
+    if symbol not in _first_api_calls:
+        _first_api_calls.add(symbol)
+        return True
+    return False
+
+def reset_first_api_calls():
+    """Reset the first API calls tracker (for testing or restart)."""
+    global _first_api_calls
+    _first_api_calls.clear()
+

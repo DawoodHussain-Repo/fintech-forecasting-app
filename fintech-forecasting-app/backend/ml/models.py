@@ -22,22 +22,77 @@ def softmax(x):
     exp_x = np.exp(x - np.max(x))  # Subtract max for numerical stability
     return exp_x / np.sum(exp_x)
 
-# Create models directory if it doesn't exist
-MODELS_DIR = os.path.join(os.path.dirname(__file__), 'models')
+# Create models directory in backend/ (not in ml/)
+BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))  # Go up to backend/
+MODELS_DIR = os.path.join(BACKEND_DIR, 'models')
 if not os.path.exists(MODELS_DIR):
     os.makedirs(MODELS_DIR)
+    print(f"Created models directory at: {MODELS_DIR}")
 
 class PersistentModel:
-    """Base class for models with persistence functionality"""
+    """Base class for models with MongoDB and disk persistence"""
+    
+    def save_model_to_mongodb(self, symbol, model_type):
+        """Save the trained model to MongoDB"""
+        try:
+            from utils.database import store_trained_model
+            
+            model_data = {
+                'model': self,
+                'trained_at': datetime.now(),
+                'symbol': symbol,
+                'model_type': model_type
+            }
+            
+            # Pickle the model
+            pickled_data = pickle.dumps(model_data)
+            
+            # Store in MongoDB
+            metadata = {
+                'trained_at': datetime.now(),
+                'model_class': self.__class__.__name__
+            }
+            
+            success = store_trained_model(symbol, model_type, pickled_data, metadata)
+            if success:
+                print(f"Model saved to MongoDB: {symbol}/{model_type}")
+            return success
+            
+        except Exception as e:
+            print(f"Error saving model to MongoDB: {e}")
+            return False
+    
+    @classmethod
+    def load_model_from_mongodb(cls, symbol, model_type, max_age_hours=24):
+        """Load a trained model from MongoDB"""
+        try:
+            from utils.database import get_trained_model
+            
+            pickled_data = get_trained_model(symbol, model_type, max_age_hours)
+            
+            if pickled_data:
+                model_data = pickle.loads(pickled_data)
+                print(f"Model loaded from MongoDB: {symbol}/{model_type}")
+                return model_data['model']
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error loading model from MongoDB: {e}")
+            return None
     
     def get_model_path(self, symbol, model_type):
-        """Get the file path for storing the model"""
+        """Get the file path for storing the model (legacy fallback)"""
         today = datetime.now().strftime("%Y%m%d")
         filename = f"{symbol}_{model_type}_{today}.pkl"
         return os.path.join(MODELS_DIR, filename)
     
     def save_model(self, symbol, model_type):
-        """Save the trained model to disk"""
+        """Save the trained model to disk (backend/models/) and optionally to MongoDB"""
+        saved_to_disk = False
+        saved_to_mongodb = False
+        
+        # ALWAYS save to disk (primary storage)
         try:
             model_path = self.get_model_path(symbol, model_type)
             model_data = {
@@ -46,17 +101,38 @@ class PersistentModel:
                 'symbol': symbol,
                 'model_type': model_type
             }
+            
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            
             with open(model_path, 'wb') as f:
                 pickle.dump(model_data, f)
-            print(f"Model saved to {model_path}")
-            return True
+            print(f"✓ Model saved to disk: {model_path}")
+            saved_to_disk = True
         except Exception as e:
-            print(f"Error saving model: {e}")
-            return False
+            print(f"✗ Error saving model to disk: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Also try MongoDB (optional, for redundancy)
+        try:
+            if self.save_model_to_mongodb(symbol, model_type):
+                saved_to_mongodb = True
+                print(f"✓ Model also saved to MongoDB for redundancy")
+        except Exception as e:
+            print(f"⚠ MongoDB save failed (non-critical): {e}")
+        
+        return saved_to_disk  # Return True if at least disk save succeeded
     
     @classmethod
-    def load_model(cls, symbol, model_type):
-        """Load a trained model from disk"""
+    def load_model(cls, symbol, model_type, max_age_hours=24):
+        """Load a trained model (tries MongoDB first, then disk)"""
+        # Try MongoDB first
+        model = cls.load_model_from_mongodb(symbol, model_type, max_age_hours)
+        if model:
+            return model
+        
+        # Fallback to disk
         try:
             # Try today's model first
             today = datetime.now().strftime("%Y%m%d")
@@ -75,14 +151,24 @@ class PersistentModel:
             with open(model_path, 'rb') as f:
                 model_data = pickle.load(f)
             
-            print(f"Model loaded from {model_path}")
+            print(f"Model loaded from disk (fallback): {model_path}")
             return model_data['model']
         except Exception as e:
-            print(f"Error loading model: {e}")
+            print(f"Error loading model from disk: {e}")
             return None
     
     def is_model_fresh(self, symbol, model_type, max_age_hours=24):
         """Check if a saved model exists and is fresh enough"""
+        # Check MongoDB first
+        try:
+            from utils.database import get_trained_model
+            model_data = get_trained_model(symbol, model_type, max_age_hours)
+            if model_data:
+                return True
+        except:
+            pass
+        
+        # Check disk
         try:
             today = datetime.now().strftime("%Y%m%d")
             model_path = os.path.join(MODELS_DIR, f"{symbol}_{model_type}_{today}.pkl")
