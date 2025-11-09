@@ -257,24 +257,48 @@ class NeuralForecaster:
                     model = None
             
             # Create and train model if not loaded from cache
+            should_save_version = False
             if model is None:
                 print(f"Training new LSTM model for {symbol}")
                 model = LSTMModel(input_size=1, hidden_size=64, num_layers=2).to(self.device)
                 self.train_model(model, train_data, epochs=epochs)
-                
-                # Save model to cache
-                if symbol and self.db:
-                    try:
-                        config = {
-                            'input_size': 1,
-                            'hidden_size': 64,
-                            'num_layers': 2,
-                            'dropout': 0.2,
-                            'seq_length': self.seq_length
-                        }
-                        self.save_model(symbol, 'lstm', model, config)
-                    except Exception as e:
-                        print(f"Could not save model: {e}")
+                should_save_version = True
+            else:
+                # Fine-tune existing model with new data
+                print(f"Fine-tuning LSTM model for {symbol} ({epochs} epochs)")
+                self.train_model(model, train_data, epochs=epochs)
+                should_save_version = True
+            
+            # Save model version after training
+            if should_save_version and symbol and self.db:
+                try:
+                    from adaptive_learning import ModelVersionManager
+                    version_manager = ModelVersionManager(self.db)
+                    
+                    config = {
+                        'input_size': 1,
+                        'hidden_size': 64,
+                        'num_layers': 2,
+                        'dropout': 0.2,
+                        'seq_length': self.seq_length
+                    }
+                    
+                    # Calculate metrics first
+                    metrics_for_save = self._calculate_metrics(model, train_data, test_data)
+                    
+                    # Save new version
+                    version = version_manager.save_version(
+                        symbol=symbol,
+                        model_name='lstm',
+                        model=model,
+                        scaler=self.scaler,
+                        config=config,
+                        metrics=metrics_for_save,
+                        update_type='patch'
+                    )
+                    print(f"✓ Saved model version: {version}")
+                except Exception as e:
+                    print(f"Could not save model version: {e}")
             
             # Make predictions
             model.eval()
@@ -363,6 +387,53 @@ class NeuralForecaster:
                 'error': str(e)
             }
     
+    def _calculate_metrics(self, model: nn.Module, train_data: np.ndarray, test_data: np.ndarray) -> Dict:
+        """Helper method to calculate metrics for model saving"""
+        model.eval()
+        
+        # If not enough test data, use training data for metrics
+        if len(test_data) < self.seq_length + 10:
+            # Use last 50 points of training data
+            if len(train_data) < self.seq_length + 50:
+                return {'rmse': 0.0, 'mae': 0.0, 'mape': 0.0}
+            
+            predictions = []
+            actuals = []
+            
+            with torch.no_grad():
+                for i in range(len(train_data) - 50, len(train_data)):
+                    if i < self.seq_length:
+                        continue
+                    seq = train_data[i-self.seq_length:i]
+                    x = torch.FloatTensor(seq).unsqueeze(0).to(self.device)
+                    pred = model(x).cpu().numpy()[0, 0]
+                    predictions.append(pred)
+                    actuals.append(train_data[i][0])
+        else:
+            # Use test data
+            predictions = []
+            actuals = []
+            
+            with torch.no_grad():
+                for i in range(self.seq_length, min(len(test_data), self.seq_length + 50)):
+                    test_seq = np.concatenate([train_data, test_data[:i]])[-self.seq_length:]
+                    x = torch.FloatTensor(test_seq).unsqueeze(0).to(self.device)
+                    pred = model(x).cpu().numpy()[0, 0]
+                    predictions.append(pred)
+                    actuals.append(test_data[i][0])
+        
+        if len(predictions) > 0:
+            predictions_inv = self.scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten()
+            actuals_inv = self.scaler.inverse_transform(np.array(actuals).reshape(-1, 1)).flatten()
+            
+            rmse = np.sqrt(mean_squared_error(actuals_inv, predictions_inv))
+            mae = mean_absolute_error(actuals_inv, predictions_inv)
+            mape = np.mean(np.abs((actuals_inv - predictions_inv) / (actuals_inv + 1e-8))) * 100
+            
+            return {'rmse': float(rmse), 'mae': float(mae), 'mape': float(mape)}
+        
+        return {'rmse': 0.0, 'mae': 0.0, 'mape': 0.0}
+    
     def gru_forecast(self, data: pd.Series, steps: int = 24,
                     epochs: int = 50, symbol: str = None, use_cache: bool = True) -> Tuple[np.ndarray, Dict]:
         """
@@ -392,24 +463,48 @@ class NeuralForecaster:
                     model = None
             
             # Create and train model if not loaded from cache
+            should_save_version = False
             if model is None:
                 print(f"Training new GRU model for {symbol}")
                 model = GRUModel(input_size=1, hidden_size=64, num_layers=2).to(self.device)
                 self.train_model(model, train_data, epochs=epochs)
-                
-                # Save model to cache
-                if symbol and self.db:
-                    try:
-                        config = {
-                            'input_size': 1,
-                            'hidden_size': 64,
-                            'num_layers': 2,
-                            'dropout': 0.2,
-                            'seq_length': self.seq_length
-                        }
-                        self.save_model(symbol, 'gru', model, config)
-                    except Exception as e:
-                        print(f"Could not save model: {e}")
+                should_save_version = True
+            else:
+                # Fine-tune existing model with new data
+                print(f"Fine-tuning GRU model for {symbol} ({epochs} epochs)")
+                self.train_model(model, train_data, epochs=epochs)
+                should_save_version = True
+            
+            # Save model version after training
+            if should_save_version and symbol and self.db:
+                try:
+                    from adaptive_learning import ModelVersionManager
+                    version_manager = ModelVersionManager(self.db)
+                    
+                    config = {
+                        'input_size': 1,
+                        'hidden_size': 64,
+                        'num_layers': 2,
+                        'dropout': 0.2,
+                        'seq_length': self.seq_length
+                    }
+                    
+                    # Calculate metrics first
+                    metrics_for_save = self._calculate_metrics(model, train_data, test_data)
+                    
+                    # Save new version
+                    version = version_manager.save_version(
+                        symbol=symbol,
+                        model_name='gru',
+                        model=model,
+                        scaler=self.scaler,
+                        config=config,
+                        metrics=metrics_for_save,
+                        update_type='patch'
+                    )
+                    print(f"✓ Saved model version: {version}")
+                except Exception as e:
+                    print(f"Could not save model version: {e}")
             
             model.eval()
             predictions = []

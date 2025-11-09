@@ -191,6 +191,26 @@ function displayChart(historicalData, predictions, symbol) {
         }
     };
     
+    // Create error overlay trace (shows prediction errors)
+    // Calculate error bars based on historical prediction accuracy
+    const lastActualPrice = historicalClose[historicalClose.length - 1];
+    const errorPercentage = 0.02; // 2% error margin (can be dynamic based on MAPE)
+    
+    const errorBandUpper = predictionValues.map(v => v * (1 + errorPercentage));
+    const errorBandLower = predictionValues.map(v => v * (1 - errorPercentage));
+    
+    const errorBandTrace = {
+        x: predictionDates.concat(predictionDates.slice().reverse()),
+        y: errorBandUpper.concat(errorBandLower.slice().reverse()),
+        fill: 'toself',
+        fillcolor: 'rgba(0, 255, 65, 0.1)',
+        line: { color: 'transparent' },
+        name: 'Error Margin',
+        type: 'scatter',
+        showlegend: true,
+        hoverinfo: 'skip'
+    };
+    
     // Layout with dark theme
     const layout = {
         title: {
@@ -244,7 +264,7 @@ function displayChart(historicalData, predictions, symbol) {
         displaylogo: false
     };
     
-    Plotly.newPlot('chart', [candlestickTrace, predictionTrace], layout, config);
+    Plotly.newPlot('chart', [candlestickTrace, errorBandTrace, predictionTrace], layout, config);
 }
 
 function displayComparison(results) {

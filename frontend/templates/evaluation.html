@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Evaluation - FinTech AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .model-card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .model-card:hover {
+            border-color: #333333;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .model-card.selected {
+            border-color: #00ff41;
+            background: #0f0f0f;
+        }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .model-name {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .model-badge {
+            padding: 6px 14px;
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 9999px;
+            font-size: 0.8em;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .model-stats {
+            margin: 15px 0;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+        }
+
+        .stat-value {
+            color: #00ff41;
+            font-weight: 600;
+        }
+
+        .detail-section {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+
+        .detail-section h3 {
+            color: #ffffff;
+            margin-top: 0;
+            font-weight: 600;
+            border-bottom: 1px solid #1a1a1a;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .version-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .version-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 3px solid #00ff41;
+            padding: 15px;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .version-item:hover {
+            background: rgba(0, 255, 65, 0.05);
+        }
+
+        .version-item.active {
+            border-left-color: #00ff41;
+            background: rgba(0, 255, 65, 0.1);
+        }
+
+        .version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .version-number {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #00ff41;
+        }
+
+        .version-date {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85em;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .comparison-card {
+            background: #000000;
+            border: 1px solid #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .comparison-card:hover {
+            border-color: #333333;
+        }
+
+        .comparison-label {
+            color: #888888;
+            font-size: 0.85em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .comparison-value {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .comparison-change {
+            font-size: 0.85em;
+            margin-top: 5px;
+        }
+
+        .comparison-change.positive {
+            color: #00ff41;
+        }
+
+        .comparison-change.negative {
+            color: #ff0040;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .chart-container-eval {
+            height: 350px;
+            margin: 20px 0;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+        }
+
+        .filter-select {
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 255, 65, 0.3);
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <header>
+            <h1>📈 MODEL EVALUATION</h1>
+            <p>Compare and analyze trained model performance</p>
+        </header>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <span class="filter-label">Filter by Symbol:</span>
+                <select id="filterSymbol" class="filter-select">
+                    <option value="all">All Symbols</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Filter by Model:</span>
+                <select id="filterModel" class="filter-select">
+                    <option value="all">All Models</option>
+                    <option value="lstm">LSTM</option>
+                    <option value="gru">GRU</option>
+                    <option value="arima">ARIMA</option>
+                    <option value="ma">Moving Average</option>
+                </select>
+            </div>
+            <button id="refreshModels" class="btn-primary">🔄 Refresh</button>
+        </div>
+
+        <!-- Model List -->
+        <div id="modelList" class="model-grid">
+            <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <h3>Loading trained models...</h3>
+                <p>Please wait while we fetch your model data</p>
+            </div>
+        </div>
+
+        <!-- Model Details (shown when a model is selected) -->
+        <div id="modelDetails" style="display: none;">
+            <div class="detail-section">
+                <h3>📊 Performance Overview</h3>
+                <div class="comparison-grid" id="performanceOverview"></div>
+            </div>
+
+            <div class="detail-section">
+                <h3>📈 Performance Trend</h3>
+                <div id="performanceTrendChart" class="chart-container-eval"></div>
+            </div>
+
+            <div class="detail-section">
+                <h3>🔖 Version History</h3>
+                <div id="versionHistory" class="version-list"></div>
+            </div>
+
+            <div class="detail-section">
+                <h3>📊 Version Comparison</h3>
+                <div id="versionComparisonChart" class="chart-container-eval"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='evaluation.js') }}"></script>
+</body>
+
+</html>

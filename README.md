@@ -9,6 +9,21 @@ AI-powered financial forecasting application using traditional time series model
 
 ## 🚀 Quick Start
 
+### Option 1: Automated Startup (Recommended)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start MongoDB (in a separate terminal)
+mongod
+
+# Run the startup script (initializes and starts everything)
+python start_adaptive_system.py
+```
+
+### Option 2: Manual Setup
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -16,12 +31,17 @@ pip install -r requirements.txt
 # Start MongoDB
 mongod
 
+# Initialize adaptive learning system (first time only)
+python backend/initialize_adaptive_system.py
+
 # Run application
 python backend/app.py
-
-# Open browser
-http://localhost:5000
 ```
+
+### Access the Application
+
+- **Main App:** http://localhost:5000
+- **Adaptive Learning Monitor:** http://localhost:5000/monitor
 
 ---
 

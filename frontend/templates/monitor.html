@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Learning Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        .monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .monitor-card {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .monitor-card:hover {
+            border-color: #333333;
+        }
+
+        .monitor-card h3 {
+            color: #ffffff;
+            margin-top: 0;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-bottom: 1px solid #1a1a1a;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-running {
+            background: #00ff41;
+        }
+
+        .status-stopped {
+            background: #ff0040;
+        }
+
+        .status-training {
+            background: #ffaa00;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #1a1a1a;
+        }
+
+        .metric-label {
+            color: #888888;
+            font-size: 0.9em;
+        }
+
+        .metric-value {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .log-entry {
+            padding: 15px;
+            margin: 8px 0;
+            background: #000000;
+            border-left: 3px solid #333333;
+            border-radius: 8px;
+            font-size: 0.9em;
+            border: 1px solid #1a1a1a;
+            border-left-width: 3px;
+        }
+
+        .log-entry.error {
+            border-left-color: #ff0040;
+        }
+
+        .log-entry.warning {
+            border-left-color: #ffaa00;
+        }
+
+        .log-time {
+            color: #666666;
+            font-size: 0.85em;
+        }
+
+        .weight-bar {
+            height: 32px;
+            background: #00ff41;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000000;
+            font-weight: 600;
+            margin: 8px 0;
+            transition: all 0.3s ease;
+        }
+
+        .version-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: #1a1a1a;
+            border: 1px solid #333333;
+            border-radius: 9999px;
+            font-size: 0.85em;
+            color: #ffffff;
+            margin: 5px 5px 5px 0;
+            font-weight: 500;
+        }
+
+        .version-badge.active {
+            background: #00ff41;
+            color: #000000;
+            border-color: #00ff41;
+        }
+
+        .chart-container-small {
+            height: 250px;
+            margin: 15px 0;
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 9999px;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #1a1a1a;
+            padding-bottom: 0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #888888;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .tab.active {
+            color: #ffffff;
+            background: #0a0a0a;
+            border-bottom-color: #00ff41;
+        }
+
+        .tab:hover {
+            color: #ffffff;
+            background: #0f0f0f;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <header>
+            <h1>🤖 ADAPTIVE LEARNING MONITOR</h1>
+            <p>Real-time Model Performance & Continuous Learning</p>
+            <div class="live-indicator">
+                <span class="status-indicator status-running"></span>
+                <span>Live Monitoring Active</span>
+            </div>
+        </header>
+
+        <!-- Symbol Selection -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="monitorSymbol">Symbol</label>
+                <select id="monitorSymbol">
+                    <optgroup label="Stocks">
+                        <option value="AAPL" selected>Apple (AAPL)</option>
+                        <option value="GOOGL">Google (GOOGL)</option>
+                        <option value="MSFT">Microsoft (MSFT)</option>
+                        <option value="TSLA">Tesla (TSLA)</option>
+                    </optgroup>
+                    <optgroup label="Cryptocurrency">
+                        <option value="BTC-USD">Bitcoin (BTC-USD)</option>
+                        <option value="ETH-USD">Ethereum (ETH-USD)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="monitorModel">Model</label>
+                <select id="monitorModel">
+                    <optgroup label="Neural Networks">
+                        <option value="lstm">LSTM</option>
+                        <option value="gru">GRU</option>
+                    </optgroup>
+                    <optgroup label="Traditional Models">
+                        <option value="ensemble">Ensemble</option>
+                        <option value="arima">ARIMA</option>
+                        <option value="ma">Moving Average</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <button id="refreshBtn" class="btn-primary">🔄 Refresh Data</button>
+            <button id="retrainBtn" class="btn-secondary">🔧 Trigger Retrain</button>
+            <button id="rebalanceBtn" class="btn-secondary">⚖️ Rebalance Ensemble</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="performance">Performance</button>
+            <button class="tab" data-tab="versions">Versions</button>
+            <button class="tab" data-tab="ensemble">Ensemble</button>
+            <button class="tab" data-tab="errors">Error Analysis</button>
+            <button class="tab" data-tab="logs">Training Logs</button>
+        </div>
+
+        <!-- Tab: Overview -->
+        <div id="overview" class="tab-content active">
+            <div class="monitor-grid">
+                <!-- Scheduler Status -->
+                <div class="monitor-card">
+                    <h3>📅 Scheduler Status</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Status:</span>
+                        <span class="metric-value" id="schedulerStatus">Loading...</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Monitored Symbols:</span>
+                        <span class="metric-value" id="monitoredSymbols">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Next Run:</span>
+                        <span class="metric-value" id="nextRun">-</span>
+                    </div>
+                </div>
+
+                <!-- Model Statistics -->
+                <div class="monitor-card">
+                    <h3>📊 Model Statistics</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Total Predictions:</span>
+                        <span class="metric-value" id="totalPredictions">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Training Count:</span>
+                        <span class="metric-value" id="trainingCount">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Days Since Training:</span>
+                        <span class="metric-value" id="daysSinceTraining">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Active Version:</span>
+                        <span class="metric-value" id="activeVersion">-</span>
+                    </div>
+                </div>
+
+                <!-- Current Performance -->
+                <div class="monitor-card">
+                    <h3>📈 Current Performance</h3>
+                    <div class="metric-row">
+                        <span class="metric-label">Recent MAPE:</span>
+                        <span class="metric-value" id="recentMAPE">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Baseline MAPE:</span>
+                        <span class="metric-value" id="baselineMAPE">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">All-time MAPE:</span>
+                        <span class="metric-value" id="alltimeMAPE">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Status:</span>
+                        <span class="metric-value" id="performanceStatus">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Performance -->
+        <div id="performance" class="tab-content">
+            <div class="monitor-card">
+                <h3>📉 Performance Trend (Last 30 Days)</h3>
+                <div id="performanceTrendChart" class="chart-container-small"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Versions -->
+        <div id="versions" class="tab-content">
+            <div class="monitor-card">
+                <h3>🔖 Version History</h3>
+                <div id="versionHistory"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Ensemble -->
+        <div id="ensemble" class="tab-content">
+            <div class="monitor-card">
+                <h3>⚖️ Current Ensemble Weights</h3>
+                <div id="ensembleWeights"></div>
+            </div>
+            <div class="monitor-card">
+                <h3>📊 Weight Evolution</h3>
+                <div id="weightHistoryChart" class="chart-container-small"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Logs -->
+        <div id="logs" class="tab-content">
+            <div class="monitor-card">
+                <h3>📝 Training Logs</h3>
+                <div id="trainingLogs"></div>
+            </div>
+        </div>
+
+        <!-- Tab: Error Analysis -->
+        <div id="errors" class="tab-content">
+            <div class="monitor-card">
+                <h3>📊 Prediction Error Analysis</h3>
+                <p style="color: rgba(255,255,255,0.7); margin-bottom: 20px;">
+                    Visualize the difference between predicted and actual prices over time
+                </p>
+                <div id="errorAnalysisChart" class="chart-container-small"></div>
+            </div>
+
+            <div class="monitor-card">
+                <h3>📉 Error Distribution</h3>
+                <div id="errorDistributionChart" class="chart-container-small"></div>
+            </div>
+        </div>
+
+        <!-- Real-time Activity Feed -->
+        <div class="monitor-card" style="margin-top: 20px;">
+            <h3>🔴 Live Activity Feed</h3>
+            <div id="activityFeed" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='monitor.js') }}"></script>
+</body>
+
+</html>
