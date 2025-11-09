@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Management - FinTech Forecasting</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    {% include 'navbar.html' %}
+
+    <div class="container">
+        <!-- Portfolio List View -->
+        <div id="portfolioListView">
+            <div class="portfolio-header">
+                <div>
+                    <h2>My Portfolios</h2>
+                    <p style="color: #888; margin-top: 0.5rem;">Manage your investment portfolios</p>
+                </div>
+                <button id="createNewPortfolioBtn" class="btn btn-primary">+ Create Portfolio</button>
+            </div>
+
+            <div id="portfolioCards" class="portfolio-grid">
+                <!-- Portfolio cards will be loaded here -->
+                <div class="loading-message">Loading portfolios...</div>
+            </div>
+        </div>
+
+        <!-- Portfolio Detail View (Hidden by default) -->
+        <div id="portfolioDetailView" style="display: none;">
+            <div class="portfolio-header">
+                <div>
+                    <button id="backToListBtn" class="btn-back">← Back to Portfolios</button>
+                    <h2 id="portfolioName">Portfolio Name</h2>
+                    <p id="portfolioId" style="color: #666; font-size: 0.9rem; margin-top: 0.5rem;"></p>
+                </div>
+                <div class="portfolio-actions">
+                    <button id="refreshDetailBtn" class="btn btn-secondary">Refresh</button>
+                </div>
+            </div>
+
+            <!-- Portfolio Summary Cards -->
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Total Value</h3>
+                    <div id="totalValue" class="metric-value">$0.00</div>
+                    <div id="totalReturn" class="metric-change">+0.00%</div>
+                </div>
+                <div class="card">
+                    <h3>Cash</h3>
+                    <div id="cashValue" class="metric-value">$0.00</div>
+                    <div id="cashPercent" class="metric-subtitle">0% of portfolio</div>
+                </div>
+                <div class="card">
+                    <h3>Positions Value</h3>
+                    <div id="positionsValue" class="metric-value">$0.00</div>
+                    <div id="positionCount" class="metric-subtitle">0 positions</div>
+                </div>
+                <div class="card">
+                    <h3>Unrealized P&L</h3>
+                    <div id="unrealizedPnl" class="metric-value">$0.00</div>
+                    <div id="realizedPnl" class="metric-subtitle">$0.00 realized</div>
+                </div>
+            </div>
+
+            <!-- Performance & Risk Grid -->
+            <div class="metrics-grid">
+                <div class="card">
+                    <h3>Performance Metrics</h3>
+                    <div id="performanceMetricsContent">
+                        <div class="metrics-list">
+                            <div class="metric-row">
+                                <span>Sharpe Ratio:</span>
+                                <span id="sharpeRatio">N/A</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Volatility:</span>
+                                <span id="volatility">N/A</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Max Drawdown:</span>
+                                <span id="maxDrawdown">N/A</span>
+                            </div>
+                            <div class="metric-row">
+                                <span>Win Rate:</span>
+                                <span id="winRate">N/A</span>
+                            </div>
+                        </div>
+                        <p id="noMetricsMessage" class="info-message"
+                            style="display: none; margin-top: 1rem; color: #888; font-size: 0.9rem;">
+                            📊 Metrics will appear after you make some trades
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Risk Dashboard</h3>
+                    <div id="riskLevel" class="risk-indicator">
+                        <div class="risk-score">0</div>
+                        <div class="risk-label">Low Risk</div>
+                    </div>
+                    <div class="metrics-list">
+                        <div class="metric-row">
+                            <span>Stop Loss Alerts:</span>
+                            <span id="stopLossCount" class="alert-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Chart -->
+            <div class="card">
+                <h3>Portfolio Growth</h3>
+                <div style="height: 400px; position: relative;">
+                    <canvas id="portfolioChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Current Positions -->
+            <div class="card">
+                <h3>Current Positions</h3>
+                <div id="positionsTable">
+                    <p class="no-data">No positions</p>
+                </div>
+            </div>
+
+            <!-- Trading Panel -->
+            <div class="card">
+                <h3>Execute Trade</h3>
+                <form id="tradeForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tradeSymbol">Symbol:</label>
+                            <input type="text" id="tradeSymbol" placeholder="e.g., AAPL" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tradeAction">Action:</label>
+                            <select id="tradeAction" required>
+                                <option value="buy">Buy</option>
+                                <option value="sell">Sell</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="tradeShares">Shares:</label>
+                            <input type="number" id="tradeShares" min="1" value="10" required>
+                        </div>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">Execute Trade</button>
+                    </div>
+                </form>
+                <div id="tradeResult" class="result-message"></div>
+            </div>
+
+            <!-- Trade History -->
+            <div class="card">
+                <h3>Recent Trades</h3>
+                <div id="tradesTable">
+                    <p class="no-data">No trades</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Portfolio Modal -->
+    <div id="createPortfolioModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Portfolio</h3>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
+            </div>
+            <form id="createPortfolioForm">
+                <div class="form-group">
+                    <label for="portfolioName">Portfolio Name:</label>
+                    <input type="text" id="portfolioNameInput" placeholder="e.g., Growth Portfolio" required>
+                </div>
+                <div class="form-group">
+                    <label for="initialCash">Initial Cash ($):</label>
+                    <input type="number" id="initialCashInput" min="1000" value="100000" step="1000" required>
+                </div>
+                <div class="form-buttons">
+                    <button type="submit" class="btn btn-primary">Create Portfolio</button>
+                    <button type="button" class="btn btn-secondary" id="cancelModalBtn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/portfolio.js') }}"></script>
+    <script>
+        const portfolioMgr = new PortfolioManager();
+        let portfolioChart = null;
+        let currentPortfolioId = null;
+        let portfoliosList = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPortfoliosList();
+        });
+
+        // Create New Portfolio Button
+        document.getElementById('createNewPortfolioBtn').addEventListener('click', () => {
+            document.getElementById('createPortfolioModal').style.display = 'flex';
+        });
+
+        // Close Modal
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+
+        function closeModal() {
+            document.getElementById('createPortfolioModal').style.display = 'none';
+            document.getElementById('createPortfolioForm').reset();
+        }
+
+        // Create Portfolio Form
+        document.getElementById('createPortfolioForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById('portfolioNameInput').value;
+            const initialCash = parseFloat(document.getElementById('initialCashInput').value);
+
+            try {
+                const result = await portfolioMgr.createPortfolio(initialCash, name);
+
+                showMessage('Portfolio created successfully!', 'success');
+                closeModal();
+                await loadPortfoliosList();
+            } catch (error) {
+                showMessage('Error creating portfolio: ' + error.message, 'error');
+            }
+        });
+
+        // Back to List
+        document.getElementById('backToListBtn').addEventListener('click', () => {
+            document.getElementById('portfolioDetailView').style.display = 'none';
+            document.getElementById('portfolioListView').style.display = 'block';
+            currentPortfolioId = null;
+            portfolioMgr.stopAutoRefresh();
+        });
+
+        // Refresh Detail
+        document.getElementById('refreshDetailBtn').addEventListener('click', () => {
+            if (currentPortfolioId) {
+                loadPortfolioDetail(currentPortfolioId);
+            }
+        });
+
+        // Execute Trade
+        document.getElementById('tradeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentPortfolioId) return;
+
+            const symbol = document.getElementById('tradeSymbol').value.toUpperCase();
+            const action = document.getElementById('tradeAction').value;
+            const shares = parseInt(document.getElementById('tradeShares').value);
+
+            try {
+                const result = await portfolioMgr.executeTrade(symbol, action, shares);
+
+                if (result.success) {
+                    showMessage(`Trade executed: ${action.toUpperCase()} ${shares} shares of ${symbol}`, 'success');
+                    await loadPortfolioDetail(currentPortfolioId);
+                } else {
+                    showMessage(`Trade rejected: ${result.reason || result.error}`, 'warning');
+                }
+            } catch (error) {
+                showMessage('Error executing trade: ' + error.message, 'error');
+            }
+        });
+
+        // Load Portfolios List
+        async function loadPortfoliosList() {
+            const container = document.getElementById('portfolioCards');
+
+            try {
+                const portfolios = await portfolioMgr.listPortfolios();
+
+                if (!portfolios || portfolios.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">💼</div>
+                            <h3>No Portfolios Yet</h3>
+                            <p>Create your first portfolio to start trading</p>
+                            <button class="btn btn-primary" onclick="document.getElementById('createNewPortfolioBtn').click()">
+                                Create Portfolio
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '';
+
+                for (const portfolio of portfolios) {
+                    try {
+                        // Fetch current portfolio data
+                        portfolioMgr.portfolioId = portfolio.portfolio_id;
+                        const summary = await portfolioMgr.getPositions();
+                        const performance = await portfolioMgr.getPerformance(30);
+
+                        const card = createPortfolioCard(portfolio.portfolio_id, portfolio, summary, performance);
+                        container.appendChild(card);
+                    } catch (error) {
+                        console.error(`Error loading portfolio ${portfolio.portfolio_id}:`, error);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading portfolios list:', error);
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <h3>Error Loading Portfolios</h3>
+                        <p>${error.message}</p>
+                        <button class="btn btn-primary" onclick="loadPortfoliosList()">
+                            Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        function createPortfolioCard(id, info, summary, performance) {
+            const card = document.createElement('div');
+            card.className = 'portfolio-card';
+
+            const returnClass = performance.cumulative_return >= 0 ? 'positive' : 'negative';
+            const returnSign = performance.cumulative_return >= 0 ? '+' : '';
+
+            card.innerHTML = `
+                <div class="portfolio-card-header">
+                    <h3>${info.name}</h3>
+                    <span class="portfolio-card-badge">${summary.position_count} positions</span>
+                </div>
+                <div class="portfolio-card-value">
+                    <div class="value-label">Total Value</div>
+                    <div class="value-amount">${portfolioMgr.formatCurrency(summary.total_value)}</div>
+                </div>
+                <div class="portfolio-card-return ${returnClass}">
+                    ${returnSign}${portfolioMgr.formatPercentage(performance.cumulative_return)}
+                </div>
+                <div class="portfolio-card-stats">
+                    <div class="stat">
+                        <span class="stat-label">Cash</span>
+                        <span class="stat-value">${portfolioMgr.formatCurrency(summary.cash)}</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">P&L</span>
+                        <span class="stat-value ${summary.total_unrealized_pnl >= 0 ? 'positive' : 'negative'}">
+                            ${portfolioMgr.formatCurrency(summary.total_unrealized_pnl)}
+                        </span>
+                    </div>
+                </div>
+                <div class="portfolio-card-footer">
+                    <button class="btn-view" onclick="viewPortfolio('${id}', '${info.name}')">View Details →</button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        async function viewPortfolio(id, name = 'Portfolio') {
+            currentPortfolioId = id;
+            portfolioMgr.portfolioId = id;
+
+            document.getElementById('portfolioName').textContent = name;
+            document.getElementById('portfolioId').textContent = `ID: ${id.substring(0, 8)}...`;
+
+            document.getElementById('portfolioListView').style.display = 'none';
+            document.getElementById('portfolioDetailView').style.display = 'block';
+
+            await loadPortfolioDetail(id);
+            portfolioMgr.startAutoRefresh(30000);
+        }
+
+        async function loadPortfolioDetail(id) {
+            try {
+                const [positions, performance, risk, trades] = await Promise.all([
+                    portfolioMgr.getPositions(),
+                    portfolioMgr.getPerformance(30),
+                    portfolioMgr.getRiskDashboard(),
+                    portfolioMgr.getTradeHistory(20)
+                ]);
+
+                updateSummaryCards(positions, performance);
+                updatePerformanceMetrics(performance);
+                updateRiskDashboard(risk);
+                updatePositionsTable(positions.positions);
+                updateTradesTable(trades);
+                await updatePortfolioChart();
+            } catch (error) {
+                console.error('Error loading portfolio detail:', error);
+                showMessage('Error loading portfolio: ' + error.message, 'error');
+            }
+        }
+
+        function updateSummaryCards(positions, performance) {
+            document.getElementById('totalValue').textContent = portfolioMgr.formatCurrency(positions.total_value);
+            document.getElementById('totalReturn').textContent = portfolioMgr.formatPercentage(performance.cumulative_return);
+            document.getElementById('totalReturn').className = 'metric-change ' + (performance.cumulative_return >= 0 ? 'positive' : 'negative');
+
+            document.getElementById('cashValue').textContent = portfolioMgr.formatCurrency(positions.cash);
+            document.getElementById('cashPercent').textContent = `${positions.cash_percentage.toFixed(1)}% of portfolio`;
+
+            document.getElementById('positionsValue').textContent = portfolioMgr.formatCurrency(positions.positions_value);
+            document.getElementById('positionCount').textContent = `${positions.position_count} positions`;
+
+            document.getElementById('unrealizedPnl').textContent = portfolioMgr.formatCurrency(positions.total_unrealized_pnl);
+            document.getElementById('unrealizedPnl').className = 'metric-value ' + (positions.total_unrealized_pnl >= 0 ? 'positive' : 'negative');
+            document.getElementById('realizedPnl').textContent = `${portfolioMgr.formatCurrency(performance.realized_pnl)} realized`;
+        }
+
+        function updatePerformanceMetrics(performance) {
+            // Show N/A for metrics when there's no trading history
+            const hasHistory = performance.total_trades > 0;
+            const hasData = performance.sharpe_ratio !== 0 || performance.volatility !== 0;
+
+            document.getElementById('sharpeRatio').textContent =
+                performance.sharpe_ratio !== 0 ? performance.sharpe_ratio.toFixed(2) : 'N/A';
+
+            document.getElementById('volatility').textContent =
+                performance.volatility !== 0 ? portfolioMgr.formatPercentage(performance.volatility) : 'N/A';
+
+            document.getElementById('maxDrawdown').textContent =
+                performance.max_drawdown !== 0 ? portfolioMgr.formatPercentage(performance.max_drawdown) : 'N/A';
+
+            document.getElementById('winRate').textContent =
+                hasHistory ? portfolioMgr.formatPercentage(performance.win_rate) : 'N/A';
+
+            // Show/hide info message
+            const message = document.getElementById('noMetricsMessage');
+            if (message) {
+                message.style.display = (!hasHistory && !hasData) ? 'block' : 'none';
+            }
+        }
+
+        function updateRiskDashboard(risk) {
+            const riskLevel = document.getElementById('riskLevel');
+            riskLevel.querySelector('.risk-score').textContent = risk.risk_score.toFixed(0);
+            riskLevel.querySelector('.risk-label').textContent = risk.risk_level + ' Risk';
+            riskLevel.className = 'risk-indicator risk-' + risk.risk_color;
+
+            document.getElementById('stopLossCount').textContent = risk.stop_loss_alerts;
+            document.getElementById('stopLossCount').className = 'alert-count ' + (risk.stop_loss_alerts > 0 ? 'alert' : '');
+        }
+
+        function updatePositionsTable(positions) {
+            const container = document.getElementById('positionsTable');
+
+            if (!positions || Object.keys(positions).length === 0) {
+                container.innerHTML = '<p class="no-data">No positions</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>Symbol</th><th>Shares</th><th>Avg Price</th><th>Current Value</th><th>P&L</th></tr></thead><tbody>';
+
+            for (const [symbol, pos] of Object.entries(positions)) {
+                const pnlClass = pos.unrealized_pnl >= 0 ? 'positive' : 'negative';
+                html += `<tr>
+                    <td><strong>${symbol}</strong></td>
+                    <td>${pos.shares}</td>
+                    <td>${portfolioMgr.formatCurrency(pos.avg_price)}</td>
+                    <td>${portfolioMgr.formatCurrency(pos.current_value)}</td>
+                    <td class="${pnlClass}">${portfolioMgr.formatCurrency(pos.unrealized_pnl)}</td>
+                </tr>`;
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function updateTradesTable(trades) {
+            const container = document.getElementById('tradesTable');
+
+            if (!trades || trades.length === 0) {
+                container.innerHTML = '<p class="no-data">No trades</p>';
+                return;
+            }
+
+            let html = '<table><thead><tr><th>Date</th><th>Symbol</th><th>Action</th><th>Shares</th><th>Price</th><th>P&L</th></tr></thead><tbody>';
+
+            trades.slice(0, 10).forEach(trade => {
+                const date = new Date(trade.timestamp).toLocaleString();
+                const pnl = trade.realized_pnl || 0;
+                const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+
+                html += `<tr>
+                    <td>${date}</td>
+                    <td><strong>${trade.symbol}</strong></td>
+                    <td class="action-${trade.action}">${trade.action.toUpperCase()}</td>
+                    <td>${trade.shares}</td>
+                    <td>${portfolioMgr.formatCurrency(trade.price)}</td>
+                    <td class="${pnlClass}">${trade.action === 'sell' ? portfolioMgr.formatCurrency(pnl) : '-'}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function updatePortfolioChart() {
+            try {
+                const history = await portfolioMgr.getPerformanceHistory(90);
+
+                const ctx = document.getElementById('portfolioChart').getContext('2d');
+
+                if (portfolioChart) {
+                    portfolioChart.destroy();
+                }
+
+                portfolioChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: history.map(h => new Date(h.date).toLocaleDateString()),
+                        datasets: [{
+                            label: 'Portfolio Value',
+                            data: history.map(h => h.total_value),
+                            borderColor: '#00ff41',
+                            backgroundColor: 'rgba(0, 255, 65, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: { color: '#ffffff' }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => portfolioMgr.formatCurrency(context.parsed.y)
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#888' },
+                                grid: { color: '#1a1a1a' }
+                            },
+                            y: {
+                                ticks: {
+                                    color: '#888',
+                                    callback: (value) => portfolioMgr.formatCurrency(value)
+                                },
+                                grid: { color: '#1a1a1a' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating chart:', error);
+            }
+        }
+
+        function showMessage(message, type = 'info') {
+            const resultDiv = document.getElementById('tradeResult');
+            resultDiv.textContent = message;
+            resultDiv.className = 'result-message ' + type;
+            resultDiv.style.display = 'block';
+
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+
+</html>

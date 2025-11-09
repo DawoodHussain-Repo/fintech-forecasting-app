@@ -18,6 +18,14 @@ from adaptive_learning import (
     RetrainingScheduler
 )
 
+# Import portfolio management components
+from portfolio import (
+    PortfolioManager,
+    TradingStrategy,
+    RiskManager,
+    PerformanceMetrics
+)
+
 app = Flask(__name__, template_folder='../frontend/templates', 
             static_folder='../frontend/static')
 CORS(app)
@@ -34,12 +42,18 @@ performance_tracker = PerformanceTracker(db)
 ensemble_rebalancer = AdaptiveEnsemble(db)
 scheduler = RetrainingScheduler(db, data_fetcher)
 
+# Initialize portfolio management components
+portfolio_manager = PortfolioManager(db, data_fetcher, initial_cash=100000.0)
+trading_strategy = TradingStrategy(db, portfolio_manager)
+risk_manager = RiskManager(db, portfolio_manager)
+performance_metrics = PerformanceMetrics(db, portfolio_manager)
+
 # Start scheduler automatically with default symbols
 try:
     scheduler.start(symbols=['AAPL', 'GOOGL', 'BTC-USD'])
-    print("✅ Adaptive learning scheduler started")
+    print("[OK] Adaptive learning scheduler started")
 except Exception as e:
-    print(f"⚠️  Scheduler start failed: {e}")
+    print(f"[WARNING] Scheduler start failed: {e}")
 
 # Popular symbols
 POPULAR_SYMBOLS = {
@@ -52,6 +66,11 @@ POPULAR_SYMBOLS = {
 def index():
     """Render main page"""
     return render_template('index.html', symbols=POPULAR_SYMBOLS)
+
+@app.route('/portfolio')
+def portfolio():
+    """Render portfolio management page"""
+    return render_template('portfolio.html')
 
 @app.route('/monitor')
 def monitor():
@@ -114,17 +133,17 @@ def forecast():
     steps = horizon_map.get(horizon, 24)
     
     print(f"\n{'='*60}")
-    print(f"🎯 Forecast Request: {symbol} / {model_type.upper()} / {horizon}")
+    print(f"[FORECAST] Request: {symbol} / {model_type.upper()} / {horizon}")
     print(f"{'='*60}")
     
     # Always fetch fresh data from yfinance for real-time predictions
-    print(f"📥 Fetching fresh data for {symbol}...")
+    print(f"[DATA] Fetching fresh data for {symbol}...")
     df = data_fetcher.fetch_data(symbol, period='1y', interval='1d')
     
     if df is None or len(df) < 100:
         return jsonify({'error': 'Insufficient data for forecasting'}), 400
     
-    print(f"✓ Fetched {len(df)} days of data")
+    print(f"[OK] Fetched {len(df)} days of data")
     
     # Store historical data
     records = df.to_dict('records')
@@ -140,7 +159,7 @@ def forecast():
     try:
         # For neural models, do incremental training
         if model_type in ['lstm', 'gru']:
-            print(f"🔄 Training {model_type.upper()} model with latest data...")
+            print(f"[TRAIN] Training {model_type.upper()} model with latest data...")
             
             # Get previous version info
             prev_version = version_manager.get_active_version(symbol, model_type)
@@ -156,7 +175,7 @@ def forecast():
                     close_prices, steps=steps, epochs=10, symbol=symbol, use_cache=True
                 )
             
-            print(f"✓ Training complete - MAPE: {metrics['mape']:.2f}%")
+            print(f"[OK] Training complete - MAPE: {metrics['mape']:.2f}%")
             
             # Get current version (model was saved during forecast)
             current_version = version_manager.get_active_version(symbol, model_type)
@@ -174,7 +193,7 @@ def forecast():
                 status='success'
             )
             
-            print(f"📝 Logged training event")
+            print(f"[LOG] Logged training event")
             
             # Log prediction for performance tracking
             # Use last actual price as baseline for comparison
@@ -190,7 +209,7 @@ def forecast():
                 metrics=metrics
             )
             
-            print(f"📊 Logged prediction for evaluation")
+            print(f"[LOG] Logged prediction for evaluation")
             
         elif model_type == 'arima':
             predictions, metrics = traditional_forecaster.arima_forecast(close_prices, steps=steps)
@@ -225,7 +244,9 @@ def forecast():
             )
             
         elif model_type == 'ensemble':
-            predictions, metrics = traditional_forecaster.ensemble_forecast(close_prices, steps=steps)
+            predictions, metrics = traditional_forecaster.ensemble_forecast(
+                close_prices, steps=steps, symbol=symbol, db=db
+            )
             
             # Log prediction
             last_actual_price = float(close_prices.iloc[-1])
@@ -279,7 +300,16 @@ def forecast():
             'model_name': model_type
         })
         
-        print(f"✅ Forecast complete!")
+        # Update ensemble weights if there's enough performance history
+        try:
+            perf_count = db.db['performance_history'].count_documents({'symbol': symbol})
+            if perf_count >= 5:  # Need at least 5 predictions to rebalance
+                print(f"[ENSEMBLE] Updating weights for {symbol} ({perf_count} predictions)")
+                ensemble_rebalancer.rebalance_weights(symbol, lookback_days=7)
+        except Exception as e:
+            print(f"[ENSEMBLE] Could not update weights: {e}")
+        
+        print(f"[OK] Forecast complete!")
         print(f"   Training count: {training_count}")
         print(f"   MAPE: {metrics['mape']:.2f}%")
         print(f"{'='*60}\n")
@@ -299,7 +329,7 @@ def forecast():
         })
     
     except Exception as e:
-        print(f"❌ Forecast error: {e}")
+        print(f"[ERROR] Forecast error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -333,7 +363,9 @@ def compare_models():
         arima_pred, arima_metrics = traditional_forecaster.arima_forecast(close_prices, steps=steps)
         results['arima'] = {'predictions': arima_pred.tolist(), 'metrics': arima_metrics}
         
-        ensemble_pred, ensemble_metrics = traditional_forecaster.ensemble_forecast(close_prices, steps=steps)
+        ensemble_pred, ensemble_metrics = traditional_forecaster.ensemble_forecast(
+            close_prices, steps=steps, symbol=symbol, db=db
+        )
         results['ensemble'] = {'predictions': ensemble_pred.tolist(), 'metrics': ensemble_metrics}
         
         # Neural models (with model caching for speed)
@@ -426,6 +458,42 @@ def trigger_retrain():
         return jsonify({
             'success': True,
             'message': f'Retraining triggered for {symbol}/{model_name}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adaptive/rebalance', methods=['POST'])
+def trigger_rebalance():
+    """Manually trigger ensemble rebalancing"""
+    data = request.json
+    symbol = data.get('symbol', 'AAPL')
+    
+    try:
+        weights = ensemble_rebalancer.rebalance_weights(symbol)
+        return jsonify({
+            'success': True,
+            'message': f'Ensemble rebalanced for {symbol}',
+            'weights': weights
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adaptive/weights/<symbol>', methods=['GET'])
+def get_ensemble_weights(symbol):
+    """Get current ensemble weights for a symbol"""
+    try:
+        weights = ensemble_rebalancer.get_current_weights(symbol)
+        
+        if weights is None:
+            return jsonify({
+                'success': False,
+                'message': 'No weights found. Generate predictions first, then rebalance.'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'symbol': symbol,
+            'weights': weights
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -528,28 +596,6 @@ def get_version_history(symbol, model):
             'symbol': symbol,
             'model': model,
             'history': history
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/adaptive/ensemble/weights/<symbol>', methods=['GET'])
-def get_ensemble_weights(symbol):
-    """Get current ensemble weights"""
-    try:
-        weights = ensemble_rebalancer.get_current_weights(symbol)
-        
-        if weights is None:
-            return jsonify({
-                'success': True,
-                'symbol': symbol,
-                'weights': None,
-                'message': 'No weights found, using equal weights'
-            })
-        
-        return jsonify({
-            'success': True,
-            'symbol': symbol,
-            'weights': weights
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -740,6 +786,350 @@ def get_trained_models():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ==================== PORTFOLIO MANAGEMENT ENDPOINTS ====================
+
+@app.route('/api/portfolio/list', methods=['GET'])
+def list_portfolios():
+    """List all portfolios"""
+    try:
+        portfolios = list(portfolio_manager.portfolio_collection.find())
+        
+        # Convert ObjectId to string and format dates
+        for portfolio in portfolios:
+            portfolio['_id'] = str(portfolio['_id'])
+            portfolio['created_at'] = portfolio['created_at'].isoformat()
+            portfolio['updated_at'] = portfolio['updated_at'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'portfolios': portfolios,
+            'count': len(portfolios)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/create', methods=['POST'])
+def create_portfolio():
+    """Create a new portfolio"""
+    try:
+        data = request.json
+        portfolio_id = data.get('portfolio_id')
+        name = data.get('name', 'Portfolio')
+        initial_cash = data.get('initial_cash', 100000.0)
+        
+        # Update initial cash if provided
+        if initial_cash != portfolio_manager.initial_cash:
+            portfolio_manager.initial_cash = initial_cash
+        
+        portfolio_id = portfolio_manager.create_portfolio(portfolio_id, name)
+        
+        return jsonify({
+            'success': True,
+            'portfolio_id': portfolio_id,
+            'name': name,
+            'initial_cash': initial_cash
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>', methods=['GET'])
+def get_portfolio(portfolio_id):
+    """Get portfolio state"""
+    try:
+        portfolio = portfolio_manager.get_portfolio(portfolio_id)
+        if not portfolio:
+            return jsonify({'error': 'Portfolio not found'}), 404
+        
+        # Convert ObjectId to string
+        portfolio['_id'] = str(portfolio['_id'])
+        portfolio['created_at'] = portfolio['created_at'].isoformat()
+        portfolio['updated_at'] = portfolio['updated_at'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'portfolio': portfolio
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/positions', methods=['GET'])
+def get_positions(portfolio_id):
+    """Get portfolio positions summary"""
+    try:
+        summary = portfolio_manager.get_positions_summary(portfolio_id)
+        
+        return jsonify({
+            'success': True,
+            'summary': summary
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/trade', methods=['POST'])
+def execute_trade(portfolio_id):
+    """Execute a trade"""
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        action = data.get('action')  # buy, sell, hold
+        shares = data.get('shares', 0)
+        trigger = data.get('trigger', 'manual')
+        model_used = data.get('model_used')
+        predicted_price = data.get('predicted_price')
+        confidence = data.get('confidence')
+        
+        if not symbol or not action:
+            return jsonify({'error': 'Symbol and action required'}), 400
+        
+        # Validate trade with risk manager
+        current_price = portfolio_manager.get_current_price(symbol)
+        validation = risk_manager.validate_trade(
+            portfolio_id, symbol, action, shares, current_price
+        )
+        
+        if not validation['approved']:
+            return jsonify({
+                'success': False,
+                'approved': False,
+                'reason': validation['reason'],
+                'risk_score': validation['risk_score']
+            })
+        
+        # Execute trade
+        result = portfolio_manager.execute_trade(
+            portfolio_id, symbol, action, shares,
+            trigger, model_used, predicted_price, confidence
+        )
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/signal', methods=['POST'])
+def generate_trading_signal(portfolio_id):
+    """Generate trading signal based on prediction"""
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        current_price = data.get('current_price')
+        predicted_price = data.get('predicted_price')
+        confidence = data.get('confidence', 0.7)
+        model_name = data.get('model_name', 'ensemble')
+        
+        if not all([symbol, current_price, predicted_price]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        signal = trading_strategy.generate_signal(
+            symbol, current_price, predicted_price,
+            confidence, model_name, portfolio_id
+        )
+        
+        return jsonify({
+            'success': True,
+            'signal': signal
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/trades', methods=['GET'])
+def get_trade_history(portfolio_id):
+    """Get trade history"""
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        trades = portfolio_manager.get_trade_history(portfolio_id, limit)
+        
+        return jsonify({
+            'success': True,
+            'trades': trades,
+            'count': len(trades)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/performance', methods=['GET'])
+def get_portfolio_performance(portfolio_id):
+    """Get portfolio performance metrics"""
+    try:
+        days = request.args.get('days', 30, type=int)
+        summary = performance_metrics.get_performance_summary(portfolio_id, days)
+        
+        return jsonify({
+            'success': True,
+            'performance': summary
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/performance/history', methods=['GET'])
+def get_portfolio_performance_history(portfolio_id):
+    """Get historical performance data"""
+    try:
+        days = request.args.get('days', 90, type=int)
+        history = performance_metrics.get_performance_history(portfolio_id, days)
+        
+        return jsonify({
+            'success': True,
+            'history': history,
+            'count': len(history)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/risk', methods=['GET'])
+def get_risk_dashboard(portfolio_id):
+    """Get risk management dashboard"""
+    try:
+        dashboard = risk_manager.get_risk_dashboard(portfolio_id)
+        
+        return jsonify({
+            'success': True,
+            'risk_dashboard': dashboard
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/stop-losses', methods=['GET'])
+def check_stop_losses(portfolio_id):
+    """Check for stop loss triggers"""
+    try:
+        stop_losses = risk_manager.check_stop_losses(portfolio_id)
+        
+        return jsonify({
+            'success': True,
+            'stop_losses': stop_losses,
+            'count': len(stop_losses)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/portfolio/<portfolio_id>/auto-trade', methods=['POST'])
+def auto_trade_on_prediction(portfolio_id):
+    """Automatically generate signal and execute trade based on prediction"""
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        model_name = data.get('model_name', 'ensemble')
+        
+        if not symbol:
+            return jsonify({
+                'success': False,
+                'error': 'Symbol required'
+            }), 400
+        
+        print(f"[AUTO-TRADE] Request for {symbol} using {model_name}")
+        
+        # Get current price
+        try:
+            current_price = portfolio_manager.get_current_price(symbol)
+            print(f"[AUTO-TRADE] Current price: ${current_price:.2f}")
+        except Exception as e:
+            print(f"[ERROR] Failed to get price: {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Failed to get current price: {str(e)}'
+            }), 500
+        
+        # Get latest prediction - try multiple model names
+        prediction = db.db['predictions'].find_one(
+            {'symbol': symbol, 'model_name': model_name},
+            sort=[('timestamp', -1)]
+        )
+        
+        # If no prediction for specified model, try any model
+        if not prediction:
+            print(f"[AUTO-TRADE] No prediction for {model_name}, trying any model...")
+            prediction = db.db['predictions'].find_one(
+                {'symbol': symbol},
+                sort=[('timestamp', -1)]
+            )
+        
+        if not prediction:
+            print(f"[AUTO-TRADE] No predictions found for {symbol}")
+            return jsonify({
+                'success': False,
+                'error': f'No prediction found for {symbol}. Please generate a forecast first.'
+            }), 404
+        
+        predicted_price = prediction.get('predicted_price')
+        if predicted_price is None:
+            # Try to get from prediction_records
+            pred_records = prediction.get('prediction_records', [])
+            if pred_records and len(pred_records) > 0:
+                predicted_price = pred_records[0].get('predicted_close')
+        
+        if predicted_price is None:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid prediction data'
+            }), 500
+        
+        confidence = prediction.get('confidence', 0.7)
+        actual_model = prediction.get('model_name', model_name)
+        
+        print(f"[AUTO-TRADE] Predicted price: ${predicted_price:.2f}, Confidence: {confidence:.2f}")
+        
+        # Generate signal
+        signal = trading_strategy.generate_signal(
+            symbol, current_price, predicted_price,
+            confidence, actual_model, portfolio_id
+        )
+        
+        print(f"[AUTO-TRADE] Signal: {signal['action']}, Reason: {signal.get('reason', 'N/A')}")
+        
+        # If signal is buy or sell, execute trade
+        if signal['action'] in ['buy', 'sell']:
+            shares = signal.get('shares', 0)
+            
+            if shares == 0:
+                return jsonify({
+                    'success': True,
+                    'signal': signal,
+                    'trade_executed': False,
+                    'reason': 'Position size too small'
+                })
+            
+            # Validate trade
+            validation = risk_manager.validate_trade(
+                portfolio_id, symbol, signal['action'], shares, current_price
+            )
+            
+            print(f"[AUTO-TRADE] Validation: {validation['approved']}, Risk: {validation.get('risk_score', 0):.2f}")
+            
+            if validation['approved']:
+                result = portfolio_manager.execute_trade(
+                    portfolio_id, symbol, signal['action'], shares,
+                    'auto_prediction', actual_model, predicted_price, confidence
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'signal': signal,
+                    'trade_executed': True,
+                    'trade_result': result
+                })
+            else:
+                return jsonify({
+                    'success': True,
+                    'signal': signal,
+                    'trade_executed': False,
+                    'reason': validation['reason']
+                })
+        else:
+            return jsonify({
+                'success': True,
+                'signal': signal,
+                'trade_executed': False,
+                'reason': signal.get('reason', 'Hold signal')
+            })
+    except Exception as e:
+        print(f"[ERROR] Auto-trade error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -167,13 +167,16 @@ class TraditionalForecaster:
             }
             return predictions, metrics
     
-    def ensemble_forecast(self, data: pd.Series, steps: int = 24) -> Tuple[np.ndarray, Dict]:
+    def ensemble_forecast(self, data: pd.Series, steps: int = 24, 
+                         symbol: str = None, db=None) -> Tuple[np.ndarray, Dict]:
         """
-        Ensemble of multiple traditional models
+        Ensemble of multiple traditional models with adaptive weighting
         
         Args:
             data: Historical price series
             steps: Number of steps to forecast
+            symbol: Stock/crypto symbol (for adaptive weights)
+            db: Database instance (for adaptive weights)
         
         Returns:
             Tuple of (predictions, metrics)
@@ -185,8 +188,58 @@ class TraditionalForecaster:
         exp_pred, exp_metrics = self.exponential_smoothing_forecast(data, alpha=0.3, steps=steps)
         arima_pred, arima_metrics = self.arima_forecast(data, order=(5, 1, 0), steps=steps)
         
-        # Average predictions
-        predictions = (ma_pred + exp_pred + arima_pred) / 3
+        # Try to use adaptive weights if available
+        weights = None
+        if symbol and db:
+            try:
+                from backend.adaptive_learning.ensemble_rebalancer import AdaptiveEnsemble
+                ensemble_rebalancer = AdaptiveEnsemble(db)
+                
+                # Get current weights
+                weights = ensemble_rebalancer.get_current_weights(symbol)
+                
+                # If no weights exist, initialize with equal weights and store
+                if weights is None:
+                    print(f"[ENSEMBLE] Initializing weights for {symbol}")
+                    from datetime import datetime
+                    weights = {
+                        'ma': 1.0/3.0,
+                        'arima': 1.0/3.0,
+                        'exp_smoothing': 1.0/3.0
+                    }
+                    
+                    # Store initial weights
+                    weight_doc = {
+                        'symbol': symbol,
+                        'timestamp': datetime.utcnow(),
+                        'weights': weights,
+                        'recent_errors': {},
+                        'lookback_days': 7,
+                        'note': 'Initial equal weights'
+                    }
+                    ensemble_rebalancer.weights_collection.insert_one(weight_doc)
+                    print(f"[ENSEMBLE] Initialized equal weights for {symbol}")
+                
+            except Exception as e:
+                print(f"[ENSEMBLE] Could not load adaptive weights: {e}")
+                weights = None
+        
+        # Apply weights if available
+        if weights:
+            # Use adaptive weights
+            w_ma = weights.get('ma', 1.0/3.0)
+            w_arima = weights.get('arima', 1.0/3.0)
+            w_exp = weights.get('exp_smoothing', 1.0/3.0)
+            
+            # Normalize weights
+            total = w_ma + w_arima + w_exp
+            w_ma, w_arima, w_exp = w_ma/total, w_arima/total, w_exp/total
+            
+            predictions = (ma_pred * w_ma) + (arima_pred * w_arima) + (exp_pred * w_exp)
+            print(f"[ENSEMBLE] Using adaptive weights: MA={w_ma:.2%}, ARIMA={w_arima:.2%}, EXP={w_exp:.2%}")
+        else:
+            # Use equal weights
+            predictions = (ma_pred + exp_pred + arima_pred) / 3
         
         # Calculate ensemble metrics
         train_size = int(len(data) * 0.8)
@@ -198,7 +251,10 @@ class TraditionalForecaster:
             exp_test, _ = self.exponential_smoothing_forecast(train, alpha=0.3, steps=len(test))
             arima_test, _ = self.arima_forecast(train, order=(5, 1, 0), steps=len(test))
             
-            ensemble_test = (ma_test + exp_test + arima_test) / 3
+            if weights:
+                ensemble_test = (ma_test * w_ma) + (arima_test * w_arima) + (exp_test * w_exp)
+            else:
+                ensemble_test = (ma_test + exp_test + arima_test) / 3
             
             rmse = np.sqrt(mean_squared_error(test, ensemble_test))
             mae = mean_absolute_error(test, ensemble_test)
@@ -211,7 +267,8 @@ class TraditionalForecaster:
             'mae': float(mae),
             'mape': float(mape),
             'model': self.model_name,
-            'component_models': ['MA_7', 'EXP_SMOOTHING', 'ARIMA_(5, 1, 0)']
+            'component_models': ['MA_7', 'EXP_SMOOTHING', 'ARIMA_(5, 1, 0)'],
+            'weights_used': weights if weights else 'equal'
         }
         
         return predictions, metrics

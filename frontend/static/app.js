@@ -57,6 +57,12 @@ async function generateForecast() {
             body: JSON.stringify({ symbol, model, horizon })
         });
         
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('Server response:', text);
+            throw new Error(`Server error: ${response.status} ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         if (data.success) {
@@ -66,6 +72,7 @@ async function generateForecast() {
             alert('Error: ' + data.error);
         }
     } catch (error) {
+        console.error('Forecast error:', error);
         alert('Error generating forecast: ' + error.message);
     } finally {
         document.getElementById('loading').style.display = 'none';

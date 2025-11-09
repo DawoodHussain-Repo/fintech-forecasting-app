@@ -50,7 +50,7 @@ class RetrainingScheduler:
         """Add symbol to monitoring list"""
         if symbol not in self.monitored_symbols:
             self.monitored_symbols.append(symbol)
-            print(f"📊 Added {symbol} to monitoring")
+            print(f"[MONITOR] Added {symbol} to monitoring")
     
     def remove_symbol(self, symbol: str):
         """Remove symbol from monitoring list"""
@@ -139,7 +139,7 @@ class RetrainingScheduler:
                     status='success'
                 )
             
-            print(f"✅ Retraining complete for {symbol}/{model_name}")
+            print(f"[OK] Retraining complete for {symbol}/{model_name}")
             
             # Callback
             if self.on_retrain_complete:
@@ -180,7 +180,7 @@ class RetrainingScheduler:
     
     def daily_check(self):
         """Daily check for all monitored symbols"""
-        print(f"\n📅 Daily check at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\n[DAILY] Daily check at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         for symbol in self.monitored_symbols:
             print(f"\n--- Checking {symbol} ---")
@@ -208,7 +208,7 @@ class RetrainingScheduler:
         # Hourly light check
         schedule.every().hour.do(self.hourly_check)
         
-        print("📅 Schedules configured:")
+        print("[SCHEDULE] Schedules configured:")
         print("   - Daily full check: 02:00")
         print("   - Hourly ensemble rebalance")
     
@@ -226,7 +226,7 @@ class RetrainingScheduler:
             symbols: List of symbols to monitor (optional)
         """
         if self.is_running:
-            print("⚠️  Scheduler already running")
+            print("[WARNING] Scheduler already running")
             return
         
         # Add symbols
@@ -242,12 +242,12 @@ class RetrainingScheduler:
         self.scheduler_thread = threading.Thread(target=self.run_scheduler, daemon=True)
         self.scheduler_thread.start()
         
-        print("✅ Scheduler started")
+        print("[OK] Scheduler started")
     
     def stop(self):
         """Stop the scheduler"""
         if not self.is_running:
-            print("⚠️  Scheduler not running")
+            print("[WARNING] Scheduler not running")
             return
         
         self.is_running = False

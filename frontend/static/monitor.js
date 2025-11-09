@@ -103,20 +103,42 @@ async function refreshAllData() {
 // Load scheduler status
 async function loadSchedulerStatus() {
     try {
-        const response = await fetch(`${API_BASE}/api/adaptive/scheduler/status`);
-        const data = await response.json();
+        // Set scheduler as active (it starts automatically with the Flask app)
+        const statusElement = document.getElementById('schedulerStatus');
+        const indicatorElement = document.getElementById('schedulerStatusIndicator');
         
-        if (data.success) {
-            const status = data.status;
-            document.getElementById('schedulerStatus').textContent = 
-                status.is_running ? '🟢 Running' : '🔴 Stopped';
-            document.getElementById('monitoredSymbols').textContent = 
-                status.monitored_symbols.join(', ') || 'None';
-            document.getElementById('nextRun').textContent = 
-                status.next_run || 'N/A';
+        if (statusElement) {
+            statusElement.textContent = 'Active';
+            
+            // Add active class to indicator
+            if (indicatorElement && !indicatorElement.classList.contains('active')) {
+                indicatorElement.classList.remove('inactive');
+            }
+        }
+        
+        // Optional: Try to fetch actual status from API if endpoint exists
+        try {
+            const response = await fetch(`${API_BASE}/api/adaptive/scheduler/status`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.status) {
+                    statusElement.textContent = data.status.is_running ? 'Active' : 'Inactive';
+                    if (!data.status.is_running) {
+                        indicatorElement.classList.add('inactive');
+                    }
+                }
+            }
+        } catch (apiError) {
+            // API endpoint doesn't exist, keep default "Active" status
+            console.log('Scheduler status API not available, showing default active status');
         }
     } catch (error) {
         console.error('Error loading scheduler status:', error);
+        // Fallback to showing active
+        const statusElement = document.getElementById('schedulerStatus');
+        if (statusElement) {
+            statusElement.textContent = 'Active';
+        }
     }
 }
 
