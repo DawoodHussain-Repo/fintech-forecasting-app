@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Forecasting AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ FINANCIAL FORECASTING AI</h1>
+            <p>Advanced Machine Learning for Market Predictions</p>
+            <div
+                style="margin-top: 15px; padding: 12px 20px; background: rgba(0, 255, 65, 0.1); border: 1px solid rgba(0, 255, 65, 0.3); border-radius: 10px; font-size: 0.9em;">
+                <span style="color: #00ff41;">💡 Real-time Data:</span>
+                <span style="color: rgba(255, 255, 255, 0.8);">Fresh market data fetched on every prediction</span>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="symbol">Symbol</label>
+                <select id="symbol">
+                    <optgroup label="Stocks">
+                        <option value="AAPL">Apple (AAPL)</option>
+                        <option value="GOOGL">Google (GOOGL)</option>
+                        <option value="MSFT">Microsoft (MSFT)</option>
+                        <option value="TSLA">Tesla (TSLA)</option>
+                        <option value="AMZN">Amazon (AMZN)</option>
+                        <option value="NVDA">NVIDIA (NVDA)</option>
+                        <option value="META">Meta (META)</option>
+                    </optgroup>
+                    <optgroup label="Cryptocurrency">
+                        <option value="BTC-USD">Bitcoin (BTC-USD)</option>
+                        <option value="ETH-USD">Ethereum (ETH-USD)</option>
+                        <option value="BNB-USD">Binance Coin (BNB-USD)</option>
+                        <option value="SOL-USD">Solana (SOL-USD)</option>
+                    </optgroup>
+                    <optgroup label="ForEx">
+                        <option value="EURUSD=X">EUR/USD</option>
+                        <option value="GBPUSD=X">GBP/USD</option>
+                    </optgroup>
+                    <optgroup label="Custom">
+                        <option value="CUSTOM">🔍 Other/Custom Symbol</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="control-group" id="customSymbolGroup" style="display: none;">
+                <label for="customSymbol">Custom Symbol</label>
+                <input type="text" id="customSymbol" placeholder="e.g., TSLA, NFLX, DOGE-USD" />
+                <div style="margin-top: 8px; font-size: 0.8em; color: rgba(255, 255, 255, 0.5);">
+                    <span style="color: var(--neon-green);">💡 Examples:</span>
+                    TSLA, NFLX, AMD, DOGE-USD, ADA-USD, JPYUSD=X
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="model">Model</label>
+                <select id="model">
+                    <option value="ensemble">Ensemble (Traditional)</option>
+                    <option value="arima">ARIMA</option>
+                    <option value="ma">Moving Average</option>
+                    <option value="lstm">LSTM (Neural)</option>
+                    <option value="gru">GRU (Neural)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="horizon">Horizon</label>
+                <select id="horizon">
+                    <option value="1d">1 Day</option>
+                    <option value="3d">3 Days</option>
+                    <option value="7d" selected>7 Days</option>
+                    <option value="24h">24 Hours</option>
+                    <option value="72h">72 Hours</option>
+                </select>
+            </div>
+
+            <button id="forecastBtn" class="btn-primary">Generate Forecast</button>
+            <button id="compareBtn" class="btn-secondary">Compare Models</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Generating forecast...</p>
+        </div>
+
+        <div id="metrics" class="metrics" style="display: none;">
+            <h3>Performance Metrics</h3>
+
+            <!-- Accuracy Rating Banner -->
+            <div
+                style="margin-bottom: 20px; padding: 15px 20px; background: rgba(0, 255, 65, 0.1); border: 1px solid rgba(0, 255, 65, 0.3); border-radius: 12px; text-align: center;">
+                <span
+                    style="color: rgba(255, 255, 255, 0.7); font-size: 0.9em; text-transform: uppercase; letter-spacing: 1px;">Accuracy
+                    Rating:</span>
+                <span id="accuracy-rating"
+                    style="font-size: 1.8em; font-weight: 700; margin-left: 10px; text-shadow: 0 0 20px currentColor;">-</span>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card" style="grid-column: span 1;">
+                    <span class="metric-label">MAPE (Key Metric)</span>
+                    <span class="metric-value" id="mape" style="font-size: 2.5em;">-</span>
+                    <span style="font-size: 0.75em; color: rgba(255, 255, 255, 0.5); margin-top: 5px; display: block;">%
+                        Error (Lower is Better)</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">RMSE</span>
+                    <span class="metric-value" id="rmse" style="font-size: 1.8em;">-</span>
+                    <span
+                        style="font-size: 0.75em; color: rgba(255, 255, 255, 0.5); margin-top: 5px; display: block;">Absolute
+                        Error</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">MAE</span>
+                    <span class="metric-value" id="mae" style="font-size: 1.8em;">-</span>
+                    <span
+                        style="font-size: 0.75em; color: rgba(255, 255, 255, 0.5); margin-top: 5px; display: block;">Absolute
+                        Error</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Model</span>
+                    <span class="metric-value" id="model-name" style="font-size: 1.5em;">-</span>
+                </div>
+            </div>
+            <div
+                style="margin-top: 20px; padding: 15px; background: rgba(0, 255, 65, 0.05); border: 1px solid rgba(0, 255, 65, 0.2); border-radius: 10px;">
+                <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.9em; margin-bottom: 5px;">
+                    📊 <strong style="color: #00ff41;">Latest Data:</strong> <span id="data-time">-</span>
+                </p>
+                <p style="color: rgba(255, 255, 255, 0.7); font-size: 0.9em;">
+                    🤖 <strong style="color: #00ff41;">Prediction Generated:</strong> <span
+                        id="prediction-time">-</span>
+                </p>
+            </div>
+        </div>
+
+        <div id="chart" class="chart-container"></div>
+
+        <div id="comparison" class="comparison" style="display: none;">
+            <h3>Model Comparison</h3>
+            <table id="comparisonTable">
+                <thead>
+                    <tr>
+                        <th>Model</th>
+                        <th>RMSE</th>
+                        <th>MAE</th>
+                        <th>MAPE (%)</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+
+</html>
